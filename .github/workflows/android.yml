@@ -1,0 +1,61 @@
+name: Build Android app
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Bundle the dashboard into the app
+        run: |
+          mkdir -p android/app/src/main/assets/www
+          cp index.html obd-engine.js obd-demo.js manifest.json icon.svg icon-192.png icon-512.png android/app/src/main/assets/www/
+
+      # Optional: stable signing key so new versions install over old ones.
+      # Add repo secrets ANDROID_KEYSTORE_B64 (base64 .jks, alias "creta-obd") and ANDROID_KEYSTORE_PASSWORD.
+      - name: Signing key
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build APK
+        working-directory: android
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: gradle --no-daemon assembleDebug
+
+      - name: Name the APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk creta-obd.apk
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-${{ github.run_number }}
+          name: Creta OBD Android app (build ${{ github.run_number }})
+          make_latest: true
+          files: creta-obd.apk
+          body: |
+            Download **creta-obd.apk** on your Android phone and open it to install.
+            Same dashboard as the website, but it connects to classic-Bluetooth OBD adapters
+            (like cheap ELM327 minis) the way native OBD apps do. Read-only by default.

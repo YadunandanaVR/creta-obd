@@ -4,3 +4,10 @@ battery_tests.json
 write_log.txt
 .claude/
 __pycache__/
+# Android build output (the dashboard is copied into assets at build time)
+android/.gradle/
+android/build/
+android/app/build/
+android/app/src/main/assets/www/
+android/local.properties
+*.jks

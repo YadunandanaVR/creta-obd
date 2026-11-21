@@ -1,0 +1,47 @@
+plugins {
+    id 'com.android.application'
+}
+
+def runNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInteger()
+
+android {
+    namespace 'com.cretaobd.app'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.cretaobd.app'
+        minSdk 26
+        targetSdk 35
+        versionCode runNumber
+        versionName "1.0.${runNumber}"
+    }
+
+    signingConfigs {
+        // Stable signature across builds (so updates install over the old version) when the
+        // keystore secret is configured in the GitHub repo; otherwise the build machine's debug key.
+        stable {
+            def ks = System.getenv("ANDROID_KEYSTORE_PATH")
+            if (ks && file(ks).exists()) {
+                storeFile file(ks)
+                storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias "creta-obd"
+                keyPassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            if (System.getenv("ANDROID_KEYSTORE_PATH")) signingConfig signingConfigs.stable
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.12.1'
+}

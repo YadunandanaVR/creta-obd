@@ -347,7 +347,7 @@ async function pickEngine() {
     const e = new OBD.DirectEngine(); e.demo = true;
     await e.setPort(new OBDDemo.MockPort(QS.get("demo") === "dtc")); return e;
   }
-  if (QS.get("mode") !== "direct") {
+  if (QS.get("mode") !== "direct" && !OBD.isNativeApp()) {
     try {
       const ctl = new AbortController(); setTimeout(() => ctl.abort(), 1500);
       const r = await fetch("/api/state", {signal: ctl.signal, cache: "no-store"});
@@ -786,14 +786,16 @@ function render() {
   $("#connectBtn").style.display = direct && !c ? "" : "none";
   if (ENGINE.demo) { $("#connTxt").textContent = c ? "DEMO data (simulated car)" : "Starting demo…"; }
   $("#discBanner").style.display = c ? "none" : "";
+  const getApp = S.native ? "" : ` <a class="btn" href="${APK_URL}" style="text-decoration:none;display:inline-block">📲 Get the Android app</a>
+       <span class="muted" style="font-size:12px">(works with adapters Chrome can't see)</span>`;
   const bannerHtml = direct && !S.has_port
     ? `<b>Not connected.</b> Pair the <b>OBDII</b> adapter in your phone's Bluetooth settings (PIN 1234), turn the ignition ON, then
        <button class="btn primary" id="bannerConnect" style="margin-left:6px">🔗 Connect</button>
-       <button class="btn" id="bannerAlt">OBDII not in the list? Try alternative</button>
-       <button class="btn" id="bannerLog">Connection log</button>`
+       ${S.native ? "" : `<button class="btn" id="bannerAlt">OBDII not in the list? Try alternative</button>`}
+       <button class="btn" id="bannerLog">Connection log</button>${getApp}`
     : `Not connected to the OBD adapter${direct ? "" : " on " + esc(S.port)}: ${esc(S.error || "…")} Retrying every 5 s. Check that the ignition is ON and the adapter is plugged in.` +
       (direct ? ` <button class="btn" id="bannerConnect" style="margin-left:6px">Choose adapter again</button>
-        <button class="btn" id="bannerAlt">Try alternative picker</button> <button class="btn" id="bannerLog">Connection log</button>` : "");
+        ${S.native ? "" : `<button class="btn" id="bannerAlt">Try alternative picker</button>`} <button class="btn" id="bannerLog">Connection log</button>${getApp}` : "");
   // only touch the DOM when the text changes, so buttons aren't replaced under the user's finger
   if (bannerHtml !== lastBanner) { $("#discBanner").innerHTML = bannerHtml; lastBanner = bannerHtml; }
   const B = battery();
@@ -825,7 +827,24 @@ async function tick() {
 })();
 // "Connect" (direct Bluetooth mode): the adapter picker must be opened from a tap
 const chromeVer = () => +(navigator.userAgent.match(/Chrome\/(\d+)/) || [])[1] || null;
+const APK_URL = "https://github.com/YadunandanaVR/creta-obd/releases/latest/download/creta-obd.apk";
+async function chooseNative() {
+  let devs;
+  try { devs = await OBD.DirectEngine.nativeDevices(); }
+  catch (e) { return warnBox("Can't list Bluetooth devices", `<p>${esc(e.message)}</p>`); }
+  if (!devs.length) return warnBox("No paired devices", `<p>Pair the adapter first: Android <b>Settings → Bluetooth → Pair new device → OBDII</b> (PIN 1234), then come back and tap Connect.</p>`);
+  devs.sort((a, b) => /obd|elm|v-?link|icar|veepeak/i.test(b.name || "") - /obd|elm|v-?link|icar|veepeak/i.test(a.name || ""));
+  warnBox("Choose your OBD adapter", `<p class="muted" style="margin-top:0">Paired Bluetooth devices on this phone:</p>
+    <div class="grid" style="gap:8px">${devs.map((d, i) => `<button class="btn${/obd|elm/i.test(d.name || "") ? " primary" : ""}" type="button" data-dev="${i}" style="text-align:left">
+      <b>${esc(d.name || "(no name)")}</b> <span class="pid">${esc(d.address)}</span></button>`).join("")}</div>`);
+  $("#wdB").onclick = e => {
+    const b = e.target.closest("[data-dev]"); if (!b) return;
+    $("#warnDlg").close(); $("#wdB").onclick = null;
+    ENGINE.useNative(devs[+b.dataset.dev]);
+  };
+}
 async function connectAdapter(alt = false) {
+  if (OBD.isNativeApp()) return chooseNative();
   if (!OBD.DirectEngine.available()) return warnBox("This browser can't reach the adapter", `<p>Direct Bluetooth needs <b>Chrome on Android (version 137 or newer)</b> or Chrome/Edge on a computer.
     ${chromeVer() ? `This browser reports Chrome <b>${chromeVer()}</b>${chromeVer() < 137 ? ", which is too old. Update Chrome from the Play Store" : ""}.` : ""}</p>
     <p class="muted">iPhones and in-app browsers (WhatsApp, Instagram etc.) can't use classic Bluetooth adapters like this OBDII one. Open this link in Chrome.</p>`);
@@ -1218,7 +1237,7 @@ setInterval(() => { if (S && S.write_armed !== lastArmed) { lastArmed = S.write_
 
 async function loadLog() { const t = await ENGINE.writelog(); $("#wlog").textContent = t || "No write actions have been performed."; }
 // offline support when hosted over https (GitHub Pages)
-if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+if ("serviceWorker" in navigator && location.protocol === "https:" && !OBD.isNativeApp()) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>
 </body>
 </html>

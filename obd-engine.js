@@ -179,6 +179,29 @@ class ServerEngine {
   writelog() { return fetch("/api/writelog").then(r => r.json()).then(r => r.log); }
 }
 
+// ------------------------------------------------------------------ native Android bridge
+// Inside the Creta OBD Android app, window.AndroidBT (Java) opens a classic Bluetooth RFCOMM socket
+// the way native OBD apps do. NativePort wraps it in the same shape as a Web Serial port.
+class NativePort {
+  constructor(address, name) { this.address = address; this.name = name; this.onlog = null; }
+  getInfo() { return {native: true, name: this.name, address: this.address}; }
+  async open() {
+    const bt = window.AndroidBT, enc = new TextEncoder(), dec = new TextDecoder();
+    let ctrl;
+    this.readable = new ReadableStream({start(c) { ctrl = c; }});
+    this.writable = new WritableStream({write(chunk) { bt.write(dec.decode(chunk)); }});
+    window.__btData = s => { try { ctrl.enqueue(enc.encode(s)); } catch (e) {} };
+    window.__btClosed = why => { this.onlog?.("Native: " + why); try { ctrl.close(); } catch (e) {} };
+    window.__btLog = m => this.onlog?.(m);
+    await new Promise((res, rej) => {
+      window.__btConnected = err => err ? rej(new Error("Bluetooth connect failed: " + err)) : res();
+      bt.connect(this.address);
+    });
+  }
+  async close() { try { window.AndroidBT.disconnect(); } catch (e) {} }
+}
+const isNativeApp = () => !!window.AndroidBT;
+
 // ------------------------------------------------------------------ direct engine (Web Serial)
 const SPP = "00001101-0000-1000-8000-00805f9b34fb";
 class DirectEngine {
@@ -196,7 +219,27 @@ class DirectEngine {
     this.rx = ""; this.waiter = null; this.chain = Promise.resolve();
     this.log = [];
   }
-  static available() { return "serial" in navigator; }
+  static available() { return "serial" in navigator || isNativeApp(); }
+
+  // Android app: list paired Bluetooth devices (asks for the Nearby-devices permission if needed)
+  static async nativeDevices() {
+    const bt = window.AndroidBT;
+    let r = JSON.parse(bt.listPaired());
+    if (r.error === "PERMISSION") {
+      const ok = await new Promise(res => { window.__btPerm = res; });
+      if (!ok) throw new Error("Bluetooth permission was denied. Allow \"Nearby devices\" for Creta OBD in Android Settings → Apps.");
+      r = JSON.parse(bt.listPaired());
+    }
+    if (r.error === "BT_OFF") throw new Error("Bluetooth is off. Turn it on and try again.");
+    if (r.error === "NO_BT") throw new Error("This phone has no Bluetooth.");
+    if (r.error) throw new Error(r.error);
+    return r.devices || [];
+  }
+  async useNative(dev) {
+    store.set("nativeDevice", dev);
+    this.log_(`Using paired device ${dev.name} (${dev.address})`);
+    await this.setPort(new NativePort(dev.address, dev.name));
+  }
 
   log_(msg) {
     this.log.push(`${new Date().toLocaleTimeString()}  ${msg}`);
@@ -220,6 +263,12 @@ class DirectEngine {
   }
   // reconnect to an adapter chosen earlier, no picker needed
   async reuse() {
+    if (isNativeApp()) {
+      const dev = store.get("nativeDevice", null);
+      this.log_(dev ? `Reconnecting to ${dev.name}` : "Android app: no adapter chosen yet");
+      if (dev) { await this.useNative(dev); return true; }
+      return false;
+    }
     if (!DirectEngine.available()) return false;
     const ps = await navigator.serial.getPorts();
     this.log_(`Previously allowed ports: ${ps.length}`);
@@ -228,6 +277,7 @@ class DirectEngine {
   }
   async setPort(p) {
     if (this.port && this.port !== p) await this._close();
+    if (p instanceof NativePort) p.onlog = m => this.log_(m);
     this.port = p; this.connected = false; this.error = "Connecting…";
     if (!this.running) this.run();
   }
@@ -521,7 +571,8 @@ class DirectEngine {
   // same shape as server.py /api/state
   async state() {
     const live = {}; for (const [k, v] of Object.entries(this.live)) live[h2(+k)] = v;
-    return {connected: this.connected, error: this.error, port: "Bluetooth", info: this.info, voltage: this.voltage, live,
+    return {connected: this.connected, error: this.error, port: isNativeApp() ? (this.port?.name || "Bluetooth") : "Bluetooth", info: this.info,
+      native: isNativeApp(), voltage: this.voltage, live,
       dtc: this.dtc, readiness: this.readiness, freeze: this.freeze, write_armed: this.writeArmed(),
       write_remaining: Math.max(0, Math.round(this.writeUntil - now())), history: this.history.slice(-240), now: now(),
       vhist: this.vhist.slice(-400), mode06: this.mode06, mode06_busy: this.mode06Req, iupr: this.iupr, bat_live: this.batLive,
@@ -556,5 +607,5 @@ class DirectEngine {
   async writelog() { return store.get("writeLog", ""); }
 }
 
-window.OBD = {ServerEngine, DirectEngine, guard, WriteBlocked, socFromV, SPP};
+window.OBD = {ServerEngine, DirectEngine, NativePort, isNativeApp, guard, WriteBlocked, socFromV, SPP};
 })();
