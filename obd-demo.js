@@ -16,20 +16,28 @@ function isotp(hex) {
 }
 
 class CarSim {
-  constructor(withCodes) {
-    this.t0 = Date.now(); this.headers = false;
-    this.stored = withCodes ? ["0171", "0300"] : [];
-    this.pending = withCodes ? ["0420"] : [];
+  // opts: {codes: simulate faults, bike: small air-cooled engine, kline: ISO 14230 KWP2000 reply format}
+  constructor(opts = {}) {
+    if (typeof opts === "boolean") opts = {codes: opts};
+    this.t0 = Date.now(); this.headers = false; this.bike = !!opts.bike; this.kline = !!opts.kline;
+    this.stored = opts.codes || opts.bike ? ["0171", "0300"].slice(0, opts.bike ? 1 : 2) : [];
+    this.pending = opts.codes ? ["0420"] : [];
   }
   get t() { return (Date.now() - this.t0) / 1000; }
   n(a) { return (Math.random() - 0.5) * 2 * a; }
-  get rpm() { const s = this.t % 40; return s < 25 ? 780 + this.n(25) : s < 32 ? 780 + (s - 25) * 420 : Math.max(800, 3700 - (s - 32) * 360); }
+  get rpm() {
+    const s = this.t % 40, idle = this.bike ? 1400 : 780, peak = this.bike ? 8600 : 3700, rise = this.bike ? 1000 : 420;
+    return s < 25 ? idle + this.n(25) : s < 32 ? idle + (s - 25) * rise : Math.max(idle, peak - (s - 32) * (this.bike ? 900 : 360));
+  }
   get speed() { const s = this.t % 40; return s < 25 ? 0 : s < 32 ? (s - 25) * 9 : Math.max(0, 63 - (s - 32) * 8); }
   get cool() { return Math.min(91, 62 + this.t * 0.6); }
   pid(p) {
     const r = this.rpm, load = 20 + (r - 780) / 60 + this.n(2), tps = 16 + (r - 780) / 70;
     switch (p) {
-      case 0x00: return "B63FA813"; case 0x20: return "801DB011"; case 0x40: return "FED08C01"; case 0x60: return "02000000";
+      case 0x00: return "B63FA813"; case 0x20: return "801DB011";
+      case 0x40: return this.bike ? "FED08C10" : "FED08C01";   // bike: adds oil temp (5C), no 0x61–0x80 range (no coolant PID 67)
+      case 0x60: return this.bike ? null : "02000000";
+      case 0x5C: return this.bike ? hx(Math.min(105, 55 + this.t * 0.8) + 40) : null;
       case 0x01: return (this.stored.length ? hx(0x80 | this.stored.length) : "00") + "07E100";
       case 0x03: return "0200";
       case 0x04: return hx(load * 2.55);
@@ -81,8 +89,8 @@ class CarSim {
     if (c === "ATZ") { this.headers = false; return ["", "ELM327 v2.1 (DEMO)"]; }
     if (c === "ATI") return ["ELM327 v2.1 (DEMO)"];
     if (c === "AT@1") return ["OBDII to RS232 Interpreter"];
-    if (c === "ATDP") return ["AUTO, ISO 15765-4 (CAN 11/500)"];
-    if (c === "ATDPN") return ["A6"];
+    if (c === "ATDP") return [this.kline ? "AUTO, ISO 14230-4 (KWP FAST)" : "AUTO, ISO 15765-4 (CAN 11/500)"];
+    if (c === "ATDPN") return [this.kline ? "A5" : "A6"];
     if (c === "ATRV") return [(this.rpm > 300 ? 14.4 + this.n(0.1) : 12.5).toFixed(1) + "V"];
     if (c === "ATH1") { this.headers = true; return ["OK"]; }
     if (c === "ATH0") { this.headers = false; return ["OK"]; }
@@ -90,6 +98,19 @@ class CarSim {
     const mode = c.slice(0, 2), p = parseInt(c.slice(2, 4) || "0", 16);
     const out = msg => this.headers ? ["7E8" + hx(msg.length / 2) + msg] : isotp(msg);
     const codes = list => hx(list.length) + list.join("");
+    if (this.kline) {
+      // K-line: fault codes 3 per line with no count byte; Mode 09 split into numbered 4-byte lines
+      const dtcLines = (pre, list) => { const out2 = []; const c2 = [...list];
+        do { const ch = c2.splice(0, 3); while (ch.length < 3) ch.push("0000"); out2.push(pre + ch.join("")); } while (c2.length); return out2; };
+      const m09 = (pid, hex) => { const lines = []; for (let i = 0, seq = 1; i < hex.length; i += 8, seq++) lines.push("49" + hx(pid) + hx(seq) + hex.slice(i, i + 8).padEnd(8, "0")); return lines; };
+      if (mode === "03") return dtcLines("43", this.stored);
+      if (mode === "07") return dtcLines("47", this.pending);
+      if (mode === "0A") return ["NO DATA"];
+      if (mode === "06") return ["NO DATA"];
+      if (mode === "09" && p === 0x02) return m09(2, "000000" + asciiHex(this.bike ? "ME3DEMOBIKE000001" : "MA3DEMOKLINE00001"));
+      if (mode === "09" && p === 0x0A) return m09(0x0A, asciiHex("ECM-Demo".padEnd(20, "\0")));
+      if (mode === "09") return ["NO DATA"];
+    }
     switch (mode) {
       case "01": { const d = this.pid(p); return d == null ? ["NO DATA"] : out("41" + hx(p) + d); }
       case "02": {
@@ -116,7 +137,7 @@ class CarSim {
 
 // Minimal stand-in for a Web Serial SerialPort
 class MockPort {
-  constructor(withCodes) { this.sim = new CarSim(withCodes); this.buf = ""; }
+  constructor(opts) { this.sim = new CarSim(opts); this.buf = ""; }
   async open() {
     let ctrl; const self = this, enc = new TextEncoder(), dec = new TextDecoder();
     this.readable = new ReadableStream({start(c) { ctrl = c; }});

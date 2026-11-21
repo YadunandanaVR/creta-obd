@@ -8,7 +8,7 @@
     <uses-feature android:name="android.hardware.bluetooth" android:required="true" />
 
     <application
-        android:label="Creta OBD"
+        android:label="OBD Dashboard"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="true"
         android:theme="@android:style/Theme.Material.NoActionBar">

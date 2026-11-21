@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Creta OBD Dashboard</title>
+<title>OBD Dashboard</title>
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/icon.svg">
 <link rel="apple-touch-icon" href="/icon.svg">
@@ -11,7 +11,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Creta OBD">
+<meta name="apple-mobile-web-app-title" content="OBD Dashboard">
 <style>
 :root{
   --bg:#0b0f14; --panel:#121821; --panel2:#18212d; --line:#243142; --text:#e6edf5; --muted:#8a9bb0;
@@ -79,6 +79,11 @@ header{padding:10px 16px;border-bottom:1px solid var(--line);background:var(--pa
 .btn.icon{width:36px;height:36px;padding:0;display:grid;place-items:center;flex:none}
 #connectBtn{flex:none}
 .kitt{display:none}
+#vehTitle{cursor:pointer}
+.vgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 10px}
+.vf{display:grid;gap:3px;font-size:12px;color:var(--muted);min-width:0}
+.vf input,.vf select{width:100%;min-width:0;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:9px;padding:8px 10px;font:inherit;font-size:14px}
+#vehTitle:hover{color:var(--accent)}
 .bars{display:inline-flex;align-items:flex-end;gap:2px;height:12px;margin-right:2px}
 .bars i{width:3px;background:var(--line);border-radius:1px}
 .bars i:nth-child(1){height:4px}.bars i:nth-child(2){height:7px}.bars i:nth-child(3){height:10px}.bars i:nth-child(4){height:13px}
@@ -211,8 +216,8 @@ dialog::backdrop{background:rgba(0,0,0,.6)}
 <header>
   <div class="hdr-top">
     <div class="hdr-title">
-      <h1>Hyundai Creta · OBD-II</h1>
-      <div class="sub" id="subtitle">2024 King edition · connecting…</div>
+      <h1 id="vehTitle" title="Switch or edit vehicle">My vehicle ▾</h1>
+      <div class="sub" id="subtitle">OBD-II · connecting…</div>
     </div>
     <button class="btn primary" id="connectBtn" style="display:none">🔗 Connect</button>
     <button class="btn icon" id="helpBtn" title="Help">?</button>
@@ -324,7 +329,7 @@ dialog::backdrop{background:rgba(0,0,0,.6)}
       <div class="card" style="grid-column:1/-1"><h2>What this car exposes over OBD-II</h2>
         <p class="muted" style="margin-top:0" id="featIntro"></p><div class="feat" id="features"></div></div>
       <div class="card" style="grid-column:1/-1"><h2>Not reachable with generic OBD-II</h2>
-        <p class="muted" style="margin-top:0">These live on other modules (body, ABS, airbag, cluster, ADAS, infotainment). Hyundai only exposes them through its own diagnostic protocol (GDS / KDS). A generic ELM327 can't read them safely without Hyundai's private IDs, so this tool doesn't try.</p>
+        <p class="muted" style="margin-top:0">These live on other modules (body, ABS, airbag, cluster, ADAS, infotainment). Manufacturers only expose them through their own dealer tools (Hyundai GDS, Maruti SDT, Honda HDS, Bosch KTS and so on). A generic ELM327 can't read them safely without each maker's private IDs, so this tool doesn't try.</p>
         <div class="feat">
           <div>🛞 Tyre pressures (TPMS)</div><div>⛽ Fuel level &amp; range (cluster)</div><div>🧭 Odometer / service interval</div>
           <div>🛑 ABS / ESC codes (C-codes)</div><div>💺 Airbag codes (B-codes)</div><div>🚪 Doors, lights, sunroof</div>
@@ -373,8 +378,8 @@ dialog::backdrop{background:rgba(0,0,0,.6)}
         <button class="btn danger" id="clearBtn" disabled>Clear codes…</button>
         <div id="clearOut" style="margin-top:10px"></div>
       </div>
-      <div class="card" style="grid-column:1/-1"><h2>All features for your Creta: read-only &amp; write</h2>
-        <p class="muted" style="margin-top:0">Everything this tool can read, plus everything that changes something in the car: what each one does, its risk, and how it's done. <span class="tag info">Read-only</span> items never change anything. Only items marked <span class="tag ok">Available here</span> send a command from this tool. <span class="tag warn">Guided</span> items are procedures you do yourself with the car's controls, and the dashboard helps you check the result. <span class="tag mute">Dealer only</span> items need Hyundai's GDS software, because a generic adapter can't do them safely.</p>
+      <div class="card" style="grid-column:1/-1"><h2>All features for your vehicle: read-only &amp; write</h2>
+        <p class="muted" style="margin-top:0">Everything this tool can read, plus everything that changes something in the car: what each one does, its risk, and how it's done. <span class="tag info">Read-only</span> items never change anything. Only items marked <span class="tag ok">Available here</span> send a command from this tool. <span class="tag warn">Guided</span> items are procedures you do yourself with the car's controls, and the dashboard helps you check the result. <span class="tag mute">Dealer only</span> items need the manufacturer's dealer software, because a generic adapter can't do them safely.</p>
         <div class="row" id="wfFilter" style="margin-bottom:8px"></div>
         <div id="wfeat"></div>
       </div>
@@ -386,15 +391,15 @@ dialog::backdrop{background:rgba(0,0,0,.6)}
 <div id="tip"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <!-- ?v= busts browser caches when the app is updated -->
-<script src="obd-engine.js?v=6"></script>
-<script src="obd-demo.js?v=6"></script>
+<script src="obd-engine.js?v=7"></script>
+<script src="obd-demo.js?v=7"></script>
 <dialog id="infoDlg"><form method="dialog">
   <div id="infoBody"></div>
   <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="btn primary" value="ok">Close</button></div>
 </form></dialog>
 <dialog id="warnDlg"><form method="dialog">
   <h3 id="wdT" style="margin-top:0"></h3><div id="wdB"></div>
-  <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="btn primary" value="ok">Understood</button></div>
+  <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="btn primary" value="ok">Close</button></div>
 </form></dialog>
 <dialog id="dlg"><form method="dialog">
   <h3 id="dlgT" style="margin-top:0"></h3><div id="dlgB"></div>
@@ -416,8 +421,9 @@ let ENGINE = null;
 const QS = new URLSearchParams(location.search);
 async function pickEngine() {
   if (QS.has("demo")) {
-    const e = new OBD.DirectEngine(); e.demo = true;
-    await e.setPort(new OBDDemo.MockPort(QS.get("demo") === "dtc")); return e;
+    const e = new OBD.DirectEngine(); e.demo = true; e.protocol = VEH().protocol || "0";
+    const d = QS.get("demo");   // ?demo=1 car · dtc car with faults · bike (K-line, air-cooled) · kline (older car)
+    await e.setPort(new OBDDemo.MockPort({codes: d === "dtc", bike: d === "bike", kline: d === "bike" || d === "kline"})); return e;
   }
   if (QS.get("mode") !== "direct" && !OBD.isNativeApp()) {
     try {
@@ -427,6 +433,7 @@ async function pickEngine() {
     } catch (e) {}
   }
   const e = new OBD.DirectEngine();
+  e.protocol = VEH().protocol || "0";
   try { await e.reuse(); } catch (err) {}
   return e;
 }
@@ -480,9 +487,9 @@ document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
 });
 
 // ------------------------------------------------------------------ field explanations
-// key: [title, what it is, normal for your Creta (1.5 petrol), what abnormal means]
+// key: [title, what it is, typical for a car, what abnormal means]  (bike/scooter overrides in INFO_BIKE)
 const INFO = {
- "0C":["Engine RPM","How fast the crankshaft is turning, in revolutions per minute.","Warm idle 650–800 rpm. Cold start idles higher (1,000–1,300 rpm) for the first minute or two. Normal driving is 1,500–3,000. The rev limit is about 6,300–6,500.","Idle that hunts up and down or drops below 550 rpm points to a dirty throttle body, a vacuum leak or a misfire. Warm idle stuck above 1,000 rpm points to an air leak or a sticking throttle."],
+ "0C":["Engine RPM","How fast the crankshaft is turning, in revolutions per minute.","Warm idle about 650–850 rpm for most petrol cars (diesels 750–900). Cold start idles higher (1,000–1,300 rpm) for a minute or two. Normal driving 1,500–3,000. Rev limit is usually 6,000–6,800 (petrol) or 4,500–5,000 (diesel).","Idle that hunts up and down or drops below 550 rpm points to a dirty throttle body, a vacuum leak or a misfire. Warm idle stuck above 1,000 rpm points to an air leak or a sticking throttle."],
  "0D":["Vehicle speed","Speed as measured by the engine computer (from the wheel-speed signal).","Matches your GPS speed closely. The cluster speedometer usually reads 2–5 % higher on purpose.","Reading 0 while moving suggests a wheel-speed sensor or ABS fault (P0500)."],
  "67":["Coolant temperature","Temperature of the engine coolant. The main 'is the engine warm' signal.","Rises to 85–100 °C within about 10 min of driving. The radiator fan cuts in around 100–105 °C. In slow traffic 100–105 °C is normal.","Never reaching 80 °C means the thermostat is stuck open (P0128) and fuel economy suffers. Above 110 °C is overheating: stop and check the coolant level when cold."],
  "05":["Coolant temperature","Temperature of the engine coolant.","85–100 °C when warm.","Above 110 °C is overheating. Never warming up points to the thermostat."],
@@ -491,7 +498,7 @@ const INFO = {
  "0B":["Intake manifold pressure (MAP)","Air pressure inside the intake. Low means vacuum (engine sucking hard against a closed throttle).","Engine off: equal to barometric pressure (about 90–101 kPa). Warm idle about 25–40 kPa. Full throttle back near barometric.","Idle MAP above about 45 kPa can indicate a vacuum leak, valve-timing issue or low compression."],
  "0E":["Ignition timing advance","How many degrees before top-dead-centre the spark plug fires. More advance gives more efficiency, up to the knock limit.","Idle 0–15°, cruise 20–40°. It drops briefly under hard acceleration.","Timing that stays low or negative under load means the knock sensor is pulling timing: poor-quality fuel or carbon build-up. Use 91+ octane."],
  "0F":["Intake air temperature","Temperature of the air entering the engine.","A little above outside temperature when moving. 10–25 °C above it in traffic or after parking (heat soak).","Hotter air gives less power. A reading of -40 °C or a fixed value means a sensor or wiring fault."],
- "10":["Mass air flow (MAF)","Grams of air per second entering the engine. The ECU calculates fuel from this.","Warm idle about 2–4 g/s, cruise 5–20 g/s, full throttle 60–90 g/s for a 1.5 L engine. Engine off: 0.","Low at full throttle means a clogged air filter or dirty sensor. Erratic readings at idle mean a dirty MAF (P0101)."],
+ "10":["Mass air flow (MAF)","Grams of air per second entering the engine. The ECU calculates fuel from this.","Warm idle about 2–4 g/s, cruise 5–20 g/s, full throttle 60–90 g/s for a 1.5 L engine (scales roughly with engine size). Engine off: 0.","Low at full throttle means a clogged air filter or dirty sensor. Erratic readings at idle mean a dirty MAF (P0101)."],
  "06":["Short-term fuel trim","Instant fuel correction. Positive means the ECU is adding fuel (mixture was lean), negative means it's removing fuel.","Swinging quickly around 0, within ±10 %. Shows 0 when the engine is off or cold (open loop).","Stuck above +10 % means a lean condition: vacuum leak or weak fuel delivery. Below -10 % means rich: leaking injector or purge valve."],
  "07":["Long-term fuel trim","The learned fuel correction the ECU keeps over time. Best indicator of engine mixture health.","Within ±5 % is excellent, up to ±10 % is acceptable.","Above +10 % (lean) points to vacuum leaks, dirty MAF or low fuel pressure (P0171). Below -10 % (rich) points to injectors, purge valve or air filter (P0172). Short + long together over ±15 % needs attention."],
  "03":["Fuel system status","Whether the ECU is using oxygen-sensor feedback to control the mixture.","'Closed loop' once warm (the normal efficient mode). 'Open loop' when cold, under full throttle or when decelerating. 'Off' with the engine stopped.","'Open loop (fault)' means a sensor problem is preventing closed-loop control."],
@@ -523,7 +530,7 @@ const INFO = {
  "56":["Secondary O2 long-term trim","Learned correction from the downstream O2 sensor.","Within about ±3 %.",""],
  "01":["Monitor status since codes cleared","Check-engine light state, number of stored codes, and which emissions self-tests are supported or complete.","MIL OFF, 0 codes.",""],
  "LINK":["Bluetooth link to the adapter","How well your phone is talking to the OBD adapter, measured from the connection itself: what share of requests the adapter answers, and how quickly. Android doesn't give apps the raw signal strength of a connected classic-Bluetooth device, and signal-to-metres guesses are unreliable, so this tells you directly whether you're close enough for live data.","75–100 % sitting in or right next to the car. These small adapters reach roughly 5–10 m in the open, less through closed doors and the car body. The bars drop as you walk away: under 50 % data updates slow down, under 25 % you're at the edge of range.","Below 25 % or 'Out of range': move back towards the car. If it stays low while you're inside, the adapter may be loose in the port or another app or phone is also connecting to it."],
- "RV":["Battery voltage at OBD port","Voltage measured by the adapter at the diagnostic socket (directly from the 12 V battery).","Engine off 12.4–12.8 V (healthy, charged). Running 13.2–14.8 V. Your Creta's smart alternator lets it dip to about 12.6–13 V while cruising to save fuel.","Engine off below 12.2 V means discharged. Running below 13.0 V for long periods means the alternator isn't charging."],
+ "RV":["Battery voltage at OBD port","Voltage measured by the adapter at the diagnostic socket (directly from the 12 V battery).","Engine off 12.4–12.8 V (healthy, charged). Running 13.2–14.8 V. Many modern cars have a smart alternator that lets it dip to about 12.6–13 V while cruising to save fuel.","Engine off below 12.2 V means discharged. Running below 13.0 V for long periods means the alternator isn't charging."],
  "BAT":["Battery charge %","State of charge of the 12 V battery, estimated from resting voltage (the car doesn't report a % over OBD).","75–100 % is good. Most accurate after the car has been parked for an hour or more.","Below 50 % means charge it (a 30+ min drive or a charger). Repeatedly low means the battery is ageing or there's a parasitic drain."],
  "SOC":["Charge (state of charge)","How full the battery is right now. Not the same as health: a healthy battery can be flat, and a worn battery can show 100 % but fail under load.","75–100 %.",""],
  "SOH":["Battery health (cranking test)","How well the battery holds voltage while the starter motor draws 100–200 A. The best do-it-yourself health indicator.","Lowest voltage while cranking ≥ 10.5 V: good. 10.0–10.5: fair. 9.6–10.0: weak. Below 9.6: replace soon.","Health drops with age (typically 2–4 years in Indian heat). Test when the battery is charged for a fair result."],
@@ -551,7 +558,7 @@ function fieldValue(k) {
 const tip = $("#tip");
 document.addEventListener("mouseover", e => {
   const el = e.target.closest("[data-info]"); if (!el || !INFO[el.dataset.info] || matchMedia("(hover: none)").matches) return;
-  const [t, w, n] = INFO[el.dataset.info];
+  const [t, w] = INFO[el.dataset.info], n = infoNormal(el.dataset.info);
   tip.innerHTML = `<b>${esc(t)}</b>${esc(w)}<div class="n">Normal: ${esc(n)}</div><div class="muted" style="margin-top:4px">Click for details</div>`;
   tip.style.display = "block";
 });
@@ -570,7 +577,7 @@ document.addEventListener("click", e => {
     ${cur ? `<div class="bignum">${esc(cur)}</div><div class="muted" style="margin-bottom:10px">${k === "LINK" && S?.link
       ? esc(`${S.link.label}${S.link.ms != null ? ` · replies in ${S.link.ms} ms · ${S.link.ok}% answered` : ""}`) : "current value"}</div>` : ""}
     <div class="infogrid"><div><h4>What it is</h4><p>${esc(inf[1])}</p></div>
-    <div><h4 style="color:var(--ok)">Normal for your Creta</h4><p>${esc(inf[2])}</p></div>
+    <div><h4 style="color:var(--ok)">Typical for ${VEH().type === "car" ? "a car" : "a " + VEH().type}</h4><p>${esc(infoNormal(k))}</p></div>
     ${inf[3] ? `<div class="warnbox"><h4 style="margin:0">If it's out of range</h4><p style="margin:4px 0 0">${esc(inf[3])}</p></div>` : ""}</div>`;
   $("#infoDlg").showModal();
 });
@@ -607,11 +614,91 @@ function makeGauge(svg, o) {
     $(`#${svg.id}V`).setAttribute("fill", z && z[3] ? z[2] : "var(--text)");
   };
 }
-const gRpm = makeGauge($("#gRpm"), {min:0,max:8000,major:1000,minor:250,unit:"rpm",tick:v=>v/1000,
-  zones:[[6000,6500,"var(--warn)",1],[6500,8000,"var(--bad)",1]]});
-const gSpd = makeGauge($("#gSpd"), {min:0,max:220,major:20,minor:10,unit:"km/h"});
-const gTmp = makeGauge($("#gTmp"), {min:40,max:130,major:10,minor:5,unit:"°C coolant",
-  zones:[[40,70,"var(--accent)",1],[70,105,"var(--ok)",0],[105,112,"var(--warn)",1],[112,130,"var(--bad)",1]]});
+// ------------------------------------------------------------------ vehicle profiles ("My vehicles")
+// Everything vehicle-specific lives here: names, gauge ranges, idle range, OBD protocol, odometer calibration.
+const VTYPES = {
+  car:     {label: "Car",       icon: "🚗", rpmMax: 8000,  redline: 6500, speedMax: 220, idleMin: 600,  idleMax: 900},
+  diesel:  {label: "Car (diesel)", icon: "🚙", rpmMax: 6000, redline: 4500, speedMax: 200, idleMin: 700, idleMax: 950},
+  bike:    {label: "Motorcycle", icon: "🏍", rpmMax: 12000, redline: 9500, speedMax: 200, idleMin: 1100, idleMax: 1700},
+  scooter: {label: "Scooter",   icon: "🛵", rpmMax: 10000, redline: 8000, speedMax: 120, idleMin: 1400, idleMax: 2000},
+};
+const PROTOCOLS = [["0", "Auto-detect (recommended)"], ["6", "CAN 11-bit 500k: most cars 2008+"], ["7", "CAN 29-bit 500k"],
+  ["8", "CAN 11-bit 250k"], ["9", "CAN 29-bit 250k"], ["5", "KWP2000 fast init (K-line): many bikes, older Asian cars"],
+  ["4", "KWP2000 slow init (K-line)"], ["3", "ISO 9141-2 (K-line): older European/Asian cars"],
+  ["2", "SAE J1850 VPW: older GM"], ["1", "SAE J1850 PWM: older Ford"]];
+const vstore = {
+  get(k, d) { try { const v = localStorage.getItem("obdveh:" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem("obdveh:" + k, JSON.stringify(v)); } catch (e) {} },
+};
+let VEHICLES = vstore.get("list", []), ACTIVE = vstore.get("active", null);
+const newVehicle = (type = "car", extra = {}) => ({id: "v" + Date.now().toString(36), type, make: "", model: "", year: "", edition: "",
+  vin: "", protocol: "0", ...Object.fromEntries(["rpmMax", "redline", "speedMax", "idleMin", "idleMax"].map(k => [k, VTYPES[type][k]])), ...extra});
+if (!VEHICLES.length) {
+  // first run: a generic car profile until the user fills it in (the wizard opens once connected or on tap)
+  VEHICLES = [newVehicle("car")]; ACTIVE = VEHICLES[0].id; vstore.set("list", VEHICLES); vstore.set("active", ACTIVE);
+  vstore.set("needsSetup", true);
+}
+function VEH() { return VEHICLES.find(v => v.id === ACTIVE) || VEHICLES[0]; }
+function vehName(v = VEH()) { return [v.make, v.model].filter(Boolean).join(" ") || (v.type === "car" || v.type === "diesel" ? "My car" : "My " + VTYPES[v.type].label.toLowerCase()); }
+function saveVehicles() { vstore.set("list", VEHICLES); vstore.set("active", ACTIVE); }
+function isTwoWheeler() { return VEH().type === "bike" || VEH().type === "scooter"; }
+
+// Manufacturer from the first characters of the VIN (World Manufacturer Identifier). Longest match wins.
+const WMI = {MAL: "Hyundai Motor India", MA3: "Maruti Suzuki", MAT: "Tata Motors", MA1: "Mahindra", MAK: "Honda Cars India",
+  MBJ: "Toyota Kirloskar", MEX: "Škoda / Volkswagen India", MD2: "Bajaj Auto", MD6: "TVS Motor", ME3: "Royal Enfield",
+  MBL: "Hero MotoCorp", ME4: "Honda Motorcycle & Scooter India", KMH: "Hyundai", KNA: "Kia", KND: "Kia", KNM: "Kia",
+  JHM: "Honda", JHL: "Honda", JH2: "Honda (motorcycles)", JYA: "Yamaha (motorcycles)", JKA: "Kawasaki (motorcycles)", JS: "Suzuki",
+  JT: "Toyota", JN: "Nissan", JM: "Mazda", WBA: "BMW", WBS: "BMW M", WMW: "MINI", WDD: "Mercedes-Benz", WDB: "Mercedes-Benz",
+  W1K: "Mercedes-Benz", WVW: "Volkswagen", WVG: "Volkswagen (SUV)", WAU: "Audi", WP0: "Porsche", WP1: "Porsche (SUV)",
+  TMB: "Škoda", VSS: "SEAT", VF1: "Renault", VF3: "Peugeot", VF7: "Citroën", ZFA: "Fiat", ZFF: "Ferrari", ZAR: "Alfa Romeo",
+  ZDM: "Ducati", VBK: "KTM", SAL: "Land Rover", SAJ: "Jaguar", YV1: "Volvo", "1FA": "Ford", "1FT": "Ford (truck)",
+  "1FM": "Ford (SUV)", "1G1": "Chevrolet", "1GC": "Chevrolet (truck)", "5YJ": "Tesla", "7SA": "Tesla", "1HD": "Harley-Davidson", "3VW": "Volkswagen (Mexico)"};
+// makers whose VIN prefix means a two-wheeler (used to pre-select "Motorcycle" on a fresh profile)
+const BIKE_WMI = new Set(["ME3", "MBL", "MD6", "ME4", "JH2", "JYA", "JKA", "ZDM", "VBK", "1HD"]);
+const wmiLookup = vin => WMI[(vin || "").slice(0, 3)] || WMI[(vin || "").slice(0, 2)] || null;
+const vinYear = vin => { const c = (vin || "")[9]; const s = "ABCDEFGHJKLMNPRSTVWXY", i = s.indexOf(c);
+  return i >= 0 ? 2010 + i : /[1-9]/.test(c || "") ? 2000 + +c : null; };
+
+// Temperature gauge source: coolant if the engine has it, else oil (air-cooled bikes), else intake air
+const coolantOnly = () => L("67") ?? L("05");
+function tempPid() { for (const p of ["67", "05", "5C", "0F"]) if (S?.live?.[p]?.value != null) return p; return "67"; }
+const TEMP_LABEL = {"67": "Coolant temperature", "05": "Coolant temperature", "5C": "Engine oil temperature", "0F": "Intake air temperature"};
+
+// Normal-range text for two-wheelers where it differs from cars
+const INFO_BIKE = {
+  "0C": "Warm idle about 1,100–1,700 rpm for most motorcycles (scooters 1,400–2,000). Rev limit is typically 8,000–12,000 depending on the engine. Your profile's red zone starts at " + "{redline}" + " rpm.",
+  "67": "Liquid-cooled bikes run about 80–100 °C, with the fan cutting in around 100–105 °C. Air-cooled bikes have no coolant sensor, so the dashboard shows oil or intake temperature instead.",
+  "05": "Liquid-cooled bikes run about 80–100 °C. Air-cooled bikes have no coolant sensor.",
+  "10": "Small engines move much less air than cars: a few g/s at idle, rising to roughly 10–30 g/s at full throttle depending on engine size.",
+  "04": "Idle 15–35 %, cruising 20–60 %, full throttle up to 100 %.",
+  "RV": "Engine off 12.4–12.8 V. Running 13.5–14.5 V. Bike batteries are small, so they drain quickly if the bike stands unused for a few weeks. A trickle charger helps.",
+  "5C": "Air-cooled engines: oil typically 80–120 °C when warm. Over 130 °C is getting hot, so let it cool.",
+};
+function infoNormal(k) {
+  const v = VEH(); let t = (isTwoWheeler() && INFO_BIKE[k]) || INFO[k]?.[2] || "";
+  if (k === "0C" && !isTwoWheeler()) t += ` Your profile's red zone starts at ${v.redline} rpm.`;
+  return t.replace("{redline}", v.redline);
+}
+
+let gRpm, gSpd, gTmp, gaugeKey = "";
+function buildGauges() {
+  const v = VEH(), tp = tempPid(), key = [v.rpmMax, v.redline, v.speedMax, tp].join("|");
+  if (key === gaugeKey) return; gaugeKey = key;
+  const major = v.rpmMax > 10000 ? 2000 : 1000;
+  gRpm = makeGauge($("#gRpm"), {min: 0, max: v.rpmMax, major, minor: major / 4, unit: "rpm", tick: x => x / 1000,
+    zones: [[Math.max(0, v.redline - (v.rpmMax > 9000 ? 1000 : 500)), v.redline, "var(--warn)", 1], [v.redline, v.rpmMax, "var(--bad)", 1]]});
+  const sMajor = v.speedMax > 160 ? 20 : 10;
+  gSpd = makeGauge($("#gSpd"), {min: 0, max: v.speedMax, major: sMajor, minor: sMajor / 2, unit: "km/h"});
+  const isIat = tp === "0F", isOil = tp === "5C";
+  gTmp = makeGauge($("#gTmp"), isIat ? {min: -10, max: 80, major: 10, minor: 5, unit: "°C intake air",
+      zones: [[-10, 50, "var(--ok)", 0], [50, 65, "var(--warn)", 1], [65, 80, "var(--bad)", 1]]}
+    : isOil ? {min: 40, max: 150, major: 10, minor: 5, unit: "°C engine oil",
+      zones: [[40, 70, "var(--accent)", 1], [70, 120, "var(--ok)", 0], [120, 135, "var(--warn)", 1], [135, 150, "var(--bad)", 1]]}
+    : {min: 40, max: 130, major: 10, minor: 5, unit: "°C coolant",
+      zones: [[40, 70, "var(--accent)", 1], [70, 105, "var(--ok)", 0], [105, 112, "var(--warn)", 1], [112, 130, "var(--bad)", 1]]});
+  const card = $("#gTmp").closest(".card"); card.dataset.info = tp; card.querySelector("h2").textContent = TEMP_LABEL[tp];
+}
+buildGauges();
 
 const gBat = makeGauge($("#gBat"), {min:0,max:100,major:20,minor:10,unit:"% charge (estimated)",
   zones:[[0,40,"var(--bad)",1],[40,70,"var(--warn)",1],[70,100,"var(--ok)",0]]});
@@ -725,7 +812,7 @@ const DTC = {
  P0456:["Evap very small leak","low",["Fuel cap seal"],["Replace the fuel cap"]],
  P0496:["Evap high purge flow","low",["Purge valve stuck open"],["Replace the PCSV"]],
  P0497:["Evap low purge flow","low",["Purge valve stuck closed","Blocked line"],["Test the PCSV and lines"]],
- P0500:["Vehicle speed sensor","med",["Wheel speed sensor (via ABS)","Wiring"],["Read the ABS module with a Hyundai-capable scanner"]],
+ P0500:["Vehicle speed sensor","med",["Wheel speed sensor (via ABS)","Wiring"],["Read the ABS module with a scanner that supports your make"]],
  P0506:["Idle speed lower than expected","low",["Dirty throttle body","Vacuum leak"],["Clean the throttle body and do an idle relearn"]],
  P0507:["Idle speed higher than expected","low",["Vacuum leak","Throttle body"],["Check for intake leaks and clean the throttle"]],
  P0532:["A/C refrigerant pressure sensor low","low",["Low refrigerant","Sensor"],["Have the A/C system pressure-checked"]],
@@ -736,7 +823,7 @@ const DTC = {
  P0606:["ECM processor fault","high",["ECU fault"],["Dealer diagnosis"]],
  P0627:["Fuel pump control circuit open","high",["Fuel pump relay/wiring"],["Check the fuel pump fuse and relay"]],
  P0650:["MIL control circuit","low",["Cluster/wiring"],["Workshop"]],
- P0700:["Transmission control system (TCM has a code)","med",["TCM stored a fault"],["Read the TCM with a Hyundai-capable scanner (GDS)"]],
+ P0700:["Transmission control system (TCM has a code)","med",["TCM stored a fault"],["Read the TCM with a scanner that supports your make (dealer tool)"]],
  P0705:["Transmission range sensor","med",["Inhibitor switch"],["Check the inhibitor switch adjustment"]],
  P0715:["Input/turbine speed sensor","med",["Sensor/wiring"],["Workshop"]],
  P0741:["Torque converter clutch stuck off","med",["Fluid condition","TCC solenoid"],["Check the transmission fluid; workshop"]],
@@ -761,9 +848,9 @@ function dtcInfo(c) {
   if (DTC[c]) { const [d, sev, cause, fix] = DTC[c]; return {d, sev, cause, fix}; }
   const generic = c[1] === "0" || c[1] === "2";
   const area = c[0] === "P" ? SYS[c[2]] : ({C:"chassis (ABS/steering)",B:"body",U:"network"})[c[0]];
-  return {d: `${generic ? "Generic" : "Hyundai-specific"} code in ${area || "unknown area"}`, sev: "med",
-    cause: [generic ? "Not in the built-in library" : "Manufacturer-specific code. Its exact meaning is in Hyundai GDS"],
-    fix: ["Search the exact code for 'Hyundai Creta " + c + "'", "A Hyundai service centre can read details with GDS"]};
+  return {d: `${generic ? "Generic" : "Manufacturer-specific"} code in ${area || "unknown area"}`, sev: "med",
+    cause: [generic ? "Not in the built-in library" : "Manufacturer-specific code. Its exact meaning is in the " + (VEH().make || "manufacturer") + " dealer tool"],
+    fix: ["Search the exact code for '" + vehName() + " " + c + "'", "An authorised service centre can read the details with its dealer tool"]};
 }
 const SEV = {high:["bad","Fix soon"],med:["warn","Attention"],low:["mute","Minor"]};
 
@@ -793,7 +880,7 @@ function renderDiag() {
 }
 
 function healthChecks() {
-  const out = [], rpm = L("0C"), run = rpm > 300, ct = coolant(), v = S.voltage ?? L("42");
+  const out = [], rpm = L("0C"), run = rpm > 300, ct = coolantOnly(), v = S.voltage ?? L("42");
   const push = (lvl, t, d) => out.push({lvl, t, d});
   if (v != null) {
     if (!run) v < 12.0 ? push("bad","Battery low",`${v} V with engine off. Below 12.0 V the battery is deeply discharged. Charge or test it.`)
@@ -812,8 +899,8 @@ function healthChecks() {
       Math.abs(tot) > 15 ? push("bad",`Fuel trim ${tot > 0 ? "lean" : "rich"}`,`Total trim ${tot.toFixed(1)} %. ${tot > 0 ? "Engine adding fuel. Look for vacuum leaks, a dirty MAF or low fuel pressure." : "Engine removing fuel. Check for a leaky injector, a stuck purge valve or a dirty air filter."}`)
       : Math.abs(tot) > 8 ? push("warn","Fuel trim drifting",`Total ${tot.toFixed(1)} % (short ${st.toFixed(1)} / long ${lt.toFixed(1)}). Keep an eye on it.`)
       : push("ok","Fuel trims",`Total ${tot.toFixed(1)} %. Mixture is well controlled.`); }
-    if (L("0D") === 0 && rpm != null) rpm > 1100 && ct > 70 ? push("warn","Idle high",`${Math.round(rpm)} rpm warm idle (expected ~650–800). Check for an intake leak or A/C load.`)
-      : rpm < 550 ? push("warn","Idle low",`${Math.round(rpm)} rpm. Possible rough idle or a dirty throttle body.`) : push("ok","Idle speed",`${Math.round(rpm)} rpm.`);
+    if (L("0D") === 0 && rpm != null) rpm > VEH().idleMax + 250 && (ct == null || ct > 70) ? push("warn","Idle high",`${Math.round(rpm)} rpm warm idle (expected ~${VEH().idleMin}–${VEH().idleMax}). Check for an intake leak or extra load.`)
+      : rpm < VEH().idleMin - 100 ? push("warn","Idle low",`${Math.round(rpm)} rpm. Possible rough idle or a dirty throttle body.`) : push("ok","Idle speed",`${Math.round(rpm)} rpm.`);
     const iat = L("0F"), amb = L("46");
     if (iat != null && amb != null && iat - amb > 30 && L("0D") > 30) push("warn","Hot intake air",`Intake ${iat} °C vs ambient ${amb} °C. Heat soak reduces power.`);
     const cat = L("3C"); if (cat != null && cat > 850) push("bad","Catalyst very hot",`${cat} °C. Can indicate misfire or rich running.`);
@@ -830,12 +917,13 @@ const SYMPTOMS = {
   "High fuel consumption": {pids:["06","07","67","5E"], causes:["Engine never fully warming up (thermostat)","Rich mixture: negative fuel trims","Low tyre pressure / dragging brakes (not visible via OBD)","Short trips & heavy idle with A/C"]},
   "Overheating / temp gauge high": {pids:["67","05","0C"], causes:["Low coolant: check the reservoir when cold","Radiator fan not switching on (fuse/relay)","Blocked radiator fins","Thermostat stuck closed or water pump"]},
   "Hard starting": {pids:["42","67"], causes:["Weak battery: check the voltage reading","Fuel pump / relay","Crank or cam sensor (P0335/P0340)","Immobiliser/smart-key issue (not readable via OBD)"]},
-  "Hesitation / jerks while accelerating": {pids:["11","49","0C","04"], causes:["Misfire under load (plugs/coils)","Dirty injectors / bad fuel","Throttle or pedal sensor glitch (P2135/P2138)","Transmission shift quality (TCM, needs Hyundai GDS)"]},
+  "Hesitation / jerks while accelerating": {pids:["11","49","0C","04"], causes:["Misfire under load (plugs/coils)","Dirty injectors / bad fuel","Throttle or pedal sensor glitch (P2135/P2138)","Transmission shift quality (TCM, needs a dealer tool)"]},
   "Battery keeps draining": {pids:["42"], causes:["Ageing battery (2+ years in Indian heat)","Parasitic drain: accessories, dashcam hard-wired","Alternator not charging: check running voltage"]},
   "Rotten-egg smell / exhaust smoke": {pids:["06","07","3C"], causes:["Rich running overheating the catalyst","Catalyst failing (P0420)","Blue smoke = oil burning, white = coolant, black = rich"]},
-  "AC not cooling well": {pids:["0C","67"], causes:["Low refrigerant / leak (P0532)","Condenser blocked with dust","Cabin filter clogged","Compressor clutch (HVAC module, not on OBD)"]},
+  "AC not cooling well": {carOnly: true, pids:["0C","67"], causes:["Low refrigerant / leak (P0532)","Condenser blocked with dust","Cabin filter clogged","Compressor clutch (HVAC module, not on OBD)"]},
 };
-$("#symptoms").innerHTML = Object.keys(SYMPTOMS).map((k, i) => `<label><input type="checkbox" value="${i}"><span>${k}</span></label>`).join("");
+const buildSymptoms = () => $("#symptoms").innerHTML = Object.keys(SYMPTOMS).map((k, i) => SYMPTOMS[k].carOnly && VEH().type !== "car" ? "" : `<label><input type="checkbox" value="${i}"><span>${k}</span></label>`).join("");
+buildSymptoms();
 $("#symptoms").onchange = renderSymptoms;
 function renderSymptoms() {
   const keys = Object.keys(SYMPTOMS), sel = [...document.querySelectorAll("#symptoms input:checked")].map(i => keys[+i.value]);
@@ -863,9 +951,9 @@ function renderVehicle() {
   if (key === vehicleDone) return; vehicleDone = key;
   const vin = i.vin || "";
   const row = (k, v) => `<tr><td class="muted">${k}</td><td>${esc(v ?? "–")}</td></tr>`;
-  $("#vinfo").innerHTML = row("Model", "Hyundai Creta (2024 King edition)") + row("VIN", vin) +
-    row("Manufacturer (WMI)", vin.startsWith("MAL") ? "MAL = Hyundai Motor India, Chennai" : vin.slice(0, 3)) +
-    row("Model-year code", vin[9] ? `${vin[9]} (VIN position 10)` : "–") + row("Engine ECU", i.ecu_name) +
+  $("#vinfo").innerHTML = row("Vehicle", vehName() + (VEH().edition ? " (" + VEH().edition + ")" : "")) + row("VIN", vin) +
+    row("Manufacturer (from VIN)", vin ? (wmiLookup(vin) ? vin.slice(0, 3) + " = " + wmiLookup(vin) : vin.slice(0, 3) + " (not in this app's list)") : "–") +
+    row("Model year (VIN)", vin[9] ? (vinYear(vin) ? `${vinYear(vin)} (code ${vin[9]})` : `code ${vin[9]}`) : "–") + row("Engine ECU", i.ecu_name) +
     row("Calibration ID", i.calibration_id) + row("Calibration check (CVN)", i.cvn) +
     row("Fuel type", S.live?.["51"]?.value) + row("OBD standard", S.live?.["1C"]?.value);
   $("#ainfo").innerHTML = row("Adapter", i.adapter) + row("Port", S.port) + row("Protocol", i.protocol) +
@@ -888,7 +976,8 @@ function render() {
   const c = S.connected;
   $("#connDot").className = "dot " + (c ? "ok" : "bad");
   $("#connTxt").textContent = c ? `Connected · ${S.port}` : "Disconnected";
-  $("#subtitle").textContent = c ? `2024 King edition · ${S.info?.protocol || ""}` : "2024 King edition";
+  $("#vehTitle").textContent = vehName() + " ▾";
+  $("#subtitle").textContent = [VEH().year, VEH().edition, c ? (S.info?.protocol || "") : "OBD-II"].filter(Boolean).join(" · ");
   const direct = S.direct && !ENGINE.demo;
   $("#connectBtn").style.display = direct && !c ? "" : "none";
   if (ENGINE.demo) { $("#connTxt").textContent = c ? "DEMO data (simulated car)" : "Starting demo…"; }
@@ -907,7 +996,8 @@ function render() {
   if (bannerHtml !== lastBanner) { $("#discBanner").innerHTML = bannerHtml; lastBanner = bannerHtml; }
   const B = battery();
   $("#hdrVolt").textContent = S.voltage != null ? S.voltage.toFixed(1) + " V" + (B.pct != null ? ` · ${B.pct}%` : "") : "–";
-  gRpm(L("0C")); gSpd(L("0D")); gTmp(coolant()); gBat(B.pct);
+  buildGauges(); checkVin();
+  gRpm(L("0C")); gSpd(L("0D")); gTmp(L(tempPid())); gBat(B.pct);
   renderLink();
   // Knight Rider scanner: 1.6 s sweep at rest, down to 0.35 s near the rev limit
   document.documentElement.style.setProperty("--scan", Math.max(0.35, 1.6 - (L("0C") || 0) / 5000).toFixed(2) + "s");
@@ -1015,7 +1105,7 @@ $("#filter").oninput = renderData;
 $("#csvBtn").onclick = () => {
   const H = S?.history || [], hdr = "time,rpm,speed_kmh,coolant_c,load_pct,throttle_pct\n";
   const csv = hdr + H.map(p => [new Date(p.t * 1000).toISOString(), p.rpm, p.speed, p.coolant, p.load, p.throttle].join(",")).join("\n");
-  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], {type: "text/csv"})); a.download = "creta-obd-history.csv"; a.click();
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], {type: "text/csv"})); a.download = "obd-history.csv"; a.click();
 };
 const con = $("#conOut");
 const log = t => { con.textContent += t + "\n"; con.scrollTop = con.scrollHeight; };
@@ -1061,7 +1151,7 @@ $("#clearBtn").onclick = async () => {
   loadLog();
 };
 // ------------------------------------------------------------------ write feature catalogue
-// s: "here" = this tool sends it | "guided" = owner procedure, no tool write | "dealer" = needs Hyundai GDS
+// s: "here" = this tool sends it | "guided" = owner procedure, no tool write | "dealer" = needs the manufacturer's dealer tool
 const WF = [
  {s:"here", i:"🧹", n:"Clear trouble codes & turn off check-engine light", cmd:"OBD Mode 04 → engine ECU (7E8)",
   what:"Erases all stored and pending emissions trouble codes in the engine computer and switches off the check-engine (MIL) light.",
@@ -1074,7 +1164,7 @@ const WF = [
   when:["After replacing the battery","After a jump-start from a completely flat battery"],
   fx:["Idle may hunt for a few minutes until the throttle relearns","Auto-up windows and sunroof stop working until re-initialised","Clock and trip meters reset"],
   req:["Battery terminals tight. The dashboard battery gauge should read ≥ 80 % engine-off"],
-  how:["Ignition ON (engine off) for 10 s, then start the engine","Let it idle 10 minutes with A/C, lights and fan OFF (throttle/idle relearn)","Windows: run each fully down, then fully up and keep holding the switch up 2–3 s","Sunroof (if fitted): with the roof closed, hold the close button ~10 s until it moves slightly, then follow the owner's manual reset","Check this dashboard: charging voltage should be 13.2–14.7 V and idle should settle at ~650–800 rpm when warm"]},
+  how:["Ignition ON (engine off) for 10 s, then start the engine","Let it idle 10 minutes with A/C, lights and fan OFF (throttle/idle relearn)","Windows: run each fully down, then fully up and keep holding the switch up 2–3 s","Sunroof (if fitted): with the roof closed, hold the close button ~10 s until it moves slightly, then follow the owner's manual reset","Check this dashboard: charging voltage should be 13.2–14.7 V and idle should settle back to its normal warm speed"]},
  {s:"guided", i:"🌀", n:"Throttle body / idle relearn", cmd:"No tool command, drive procedure",
   what:"Lets the engine computer re-learn the closed-throttle position and idle airflow after cleaning the throttle body.",
   when:["After cleaning the throttle body (useful every ~30,000 km)","Idle too high or low, or hunting (see Diagnostics → health checks)"],
@@ -1088,29 +1178,29 @@ const WF = [
   req:["Ignition ON"],
   how:["Use the steering-wheel buttons: cluster Settings / User Settings → Service interval","Choose Reset (or set the next interval, typically 10,000 km / 1 year for this engine)","The exact menu names depend on cluster software. See the owner's manual"]},
  {s:"guided", i:"🛞", n:"TPMS (tyre pressure) after rotation or pressure change", cmd:"Automatic re-learn by driving",
-  what:"The Creta's direct TPMS sensors re-associate with their positions and clear the low-pressure warning.",
+  what:"Direct TPMS sensors (on cars that have them) re-associate with their positions and clear the low-pressure warning.",
   when:["After inflating tyres","After a tyre rotation or puncture repair"],
   fx:["None"],
   req:["Inflate to the door-pillar sticker pressures with tyres cold"],
   how:["Drive above ~25 km/h for 10–20 minutes. The warning clears by itself","If it stays on or the warning lamp blinks, a sensor may be faulty (dealer check)","TPMS isn't readable over generic OBD, so this dashboard can't show tyre pressures"]},
  {s:"dealer", i:"💾", n:"ECU software update / reflash", cmd:"UDS programming session (blocked here)",
-  what:"Installs updated engine or transmission software published by Hyundai (fixes, drivability updates, recalls).",
-  why:"A wrong file or an interrupted write can brick the ECU. It needs Hyundai's signed files and security access. Generic adapters must never do this."},
- {s:"dealer", i:"⚙", n:"Transmission (IVT/DCT/AT) adaptive values reset", cmd:"Hyundai-specific TCM routine (blocked here)",
+  what:"Installs updated engine or transmission software published by the manufacturer (fixes, drivability updates, recalls).",
+  why:"A wrong file or an interrupted write can brick the ECU. It needs the manufacturer's signed files and security access. Generic adapters must never do this."},
+ {s:"dealer", i:"⚙", n:"Transmission (IVT/DCT/AT) adaptive values reset", cmd:"Manufacturer-specific TCM routine (blocked here)",
   what:"Clears and re-learns shift and clutch adaptation. Fixes harsh or jerky shifts after a repair or fluid change.",
-  why:"The TCM doesn't answer generic OBD on this car (only the engine ECU 7E8 responds). It needs GDS routine IDs."},
+  why:"On most cars the gearbox computer doesn't answer generic OBD at all, and the routine IDs are manufacturer-specific."},
  {s:"dealer", i:"🧭", n:"Steering angle sensor calibration", cmd:"Chassis module routine (blocked here)",
   what:"Zeroes the steering angle sensor used by ESC, lane-keep and the parking cameras.",
   why:"Needed after an alignment or steering work. A wrong calibration affects ESC and ADAS behaviour, so it's a dealer job."},
  {s:"dealer", i:"📷", n:"ADAS camera / radar calibration", cmd:"Dealer calibration with targets",
   what:"Aligns the front camera and radar used by lane-keep assist, forward-collision avoidance and smart cruise.",
-  why:"Requires physical targets and GDS. Needed after a windscreen replacement or front-end repair."},
+  why:"Requires physical targets and the dealer tool. Needed after a windscreen replacement or front-end repair."},
  {s:"dealer", i:"🅿", n:"Electronic parking brake service mode", cmd:"Brake module routine (blocked here)",
   what:"Retracts the rear EPB motors so rear pads can be replaced.",
-  why:"Forcing the brake actuators from a generic tool is a safety risk. Workshops use GDS or a brake-capable scan tool."},
+  why:"Forcing the brake actuators from a generic tool is a safety risk. Workshops use the dealer tool or a brake-capable scan tool."},
  {s:"dealer", i:"🔑", n:"Key / smart-key programming", cmd:"Immobiliser (blocked here)",
   what:"Adds or removes keys from the immobiliser.",
-  why:"Security function protected by Hyundai PIN and online authorisation."},
+  why:"Security function protected by the manufacturer's PIN and online authorisation."},
  {s:"dealer", i:"💉", n:"Injector coding / ABS bleeding / module coding", cmd:"Various UDS routines (blocked here)",
   what:"Configures replacement parts (injectors, ABS unit, body modules) so the car recognises them.",
   why:"Part-specific data and security access needed. Only done when a part is replaced."},
@@ -1126,13 +1216,13 @@ const RISK_INFO = {
  "Battery replacement / reconnection reset": ["low", [
    "Wrong polarity when reconnecting can blow fuses or damage ECUs. Connect + first, − last",
    "Don't leave the ignition ON for long periods with a weak battery during relearn",
-   "If the new battery is a different size or type (AGM vs flooded), use Hyundai's spec for the Creta"]],
+   "If the new battery is a different size or type (AGM vs flooded), use the spec in your owner's manual"]],
  "Throttle body / idle relearn": ["low", [
    "Don't spray cleaner into the throttle body with the ignition ON. The motorised throttle blade can move and pinch fingers",
    "Avoid spraying the throttle position sensor connector"]],
  "Service reminder reset": ["low", ["Only reset after the service is actually done, or you lose your reminder"]],
  "TPMS (tyre pressure) after rotation or pressure change": ["low", ["A blinking TPMS lamp means a sensor fault, not low pressure. Don't ignore it"]],
- "ECU software update / reflash": ["high", ["Interrupted or wrong flash can permanently disable the engine computer (car won't start)","Voids warranty if done outside Hyundai"]],
+ "ECU software update / reflash": ["high", ["Interrupted or wrong flash can permanently disable the engine computer (car won't start)","Voids warranty if done outside the dealer"]],
  "Transmission (IVT/DCT/AT) adaptive values reset": ["high", ["Shifts can be harsh until re-learned. A wrong routine can put the TCM into limp mode"]],
  "Steering angle sensor calibration": ["high", ["A wrong zero point makes ESC intervene incorrectly and disturbs lane-keep assist"]],
  "ADAS camera / radar calibration": ["high", ["Mis-calibration can make collision-avoidance brake late or falsely"]],
@@ -1143,7 +1233,7 @@ const RISK_INFO = {
 WF.forEach(f => { const r = RISK_INFO[f.n]; if (r) { f.risk = r[0]; f.warn = r[1]; } });
 const READ_FEATURES = [
  {i:"📈", n:"Live engine data (all supported sensors)", go:"data", what:"Continuously polls every parameter the engine ECU supports (39 on this car): RPM, speed, temperatures, load, throttle, airflow, fuel trims, O2 sensors, catalyst temperature, EGR, purge, voltages, run time.", how:["Dashboard tab for gauges, All live data tab for everything","Export history as CSV from the All live data tab"]},
- {i:"🎛", n:"Rev counter, speedometer, coolant & battery gauges", go:"dash", what:"Animated gauges with warning zones (rev limit 6,000–6,500 rpm, coolant above 105 °C, battery under 70 %), plus a 2-minute trend chart."},
+ {i:"🎛", n:"Rev counter, speedometer, coolant & battery gauges", go:"dash", what:"Animated gauges with warning zones (red zone from your vehicle profile, coolant above 105 °C, battery under 70 %), plus a 2-minute trend chart."},
  {i:"🚨", n:"Trouble codes: stored, pending & permanent", go:"diag", what:"Reads Mode 03 (confirmed), 07 (pending: seen once, not yet confirmed) and 0A (permanent: only the ECU can clear these) every 20 s, with a description, severity, likely causes and repair steps for each code."},
  {i:"📸", n:"Freeze frame", go:"diag", what:"When a code is stored, shows the snapshot of engine conditions (RPM, speed, load, temperatures, fuel trims) at the moment the fault was detected."},
  {i:"✅", n:"Readiness monitors", go:"diag", what:"Shows whether each emissions self-test (misfire, fuel system, catalyst, O2 sensors, heaters, EGR/VVT) has completed. All ready means PUC-test-ready."},
@@ -1232,6 +1322,7 @@ function renderM06() {
   $("#m06Btn").disabled = S.mode06_busy || !S.connected;
   $("#m06Btn").textContent = S.mode06_busy ? "Reading…" : m ? "↻ Read again" : "▶ Read test results";
   if (!m) return;
+  if (m.note) { $("#m06").innerHTML = `<p class="muted">${esc(m.note)}</p>`; return; }
   if (!m.tests.length) { $("#m06").innerHTML = `<p class="muted">The ECU returned no Mode 06 results (supported monitors: ${m.mids.join(", ") || "none"}).</p>`; return; }
   const fails = m.tests.filter(t => !t.pass).length, by = {};
   m.tests.forEach(t => (by[t.monitor] ||= []).push(t));
@@ -1241,7 +1332,7 @@ function renderM06() {
     if (!t.hi_open) d.push(Math.abs(t.max - t.value) / Math.max(Math.abs(t.max), 1e-6));
     return d.length ? Math.min(...d) : null; };
   $("#m06").innerHTML = `<p>${fails ? `<span class="tag bad">${fails} failing</span>` : `<span class="tag ok">All ${m.tests.length} tests pass</span>`}
-    <span class="muted"> · read ${new Date(m.t * 1000).toLocaleTimeString()}. "Near limit" means within 10 % of a limit. For Hyundai "Manufacturer test" rows, some values sit near one limit by design. Watch whether they move between readings instead of reacting to a single result.</span></p>` +
+    <span class="muted"> · read ${new Date(m.t * 1000).toLocaleTimeString()}. "Near limit" means within 10 % of a limit. For "Manufacturer test" rows, some values sit near one limit by design. Watch whether they move between readings instead of reacting to a single result.</span></p>` +
     Object.entries(by).map(([mon, ts]) => `<div class="dtc"><b>${esc(mon)}</b><table style="margin-top:6px"><tr><th>Test</th><th class="num">Value</th><th class="num">Min</th><th class="num">Max</th><th>Result</th></tr>` +
       ts.map(t => { const mg = margin(t), near = t.pass && mg != null && mg < 0.1;
         return `<tr><td>${esc(t.test)} <span class="pid">${t.tid}</span></td><td class="num">${t.value} ${esc(t.unit)}</td><td class="num">${t.min}</td><td class="num">${t.max}</td>
@@ -1264,13 +1355,13 @@ function renderIUPR() {
 // ------------------------------------------------------------------ odometer
 function ecuKm() { return L("31"); }
 function estOdo() {
-  const st = S.settings || {}, e = ecuKm();
+  const st = VEH(), e = ecuKm();        // calibration is stored per vehicle profile
   if (!st.odo_ref_km || !st.ecu_ref_km || e == null) return null;
   const ratio = st.odo_ref_km / st.ecu_ref_km;
   return {odo: Math.round(st.odo_ref_km + (e - st.ecu_ref_km) * ratio), ratio};
 }
 function renderOdo() {
-  const e = ecuKm(), st = S.settings || {}, est = estOdo();
+  const e = ecuKm(), st = VEH(), est = estOdo();
   const diff = st.odo_ref_km && st.ecu_ref_km ? ((st.ecu_ref_km / st.odo_ref_km - 1) * 100) : null;
   $("#odoInfo").innerHTML = `
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px">
@@ -1280,7 +1371,7 @@ function renderOdo() {
     </div>
     <div class="muted" style="margin-top:10px;font-size:13px">
       <b style="color:var(--text)">Why this number differs from your cluster odometer:</b> the ECU distance counter is <b>not the odometer</b>.
-      Your Creta's engine computer doesn't share the real odometer over generic OBD (PID A6 isn't supported). The value shown is a separate ECU counter,
+      Most engine computers don't share the real odometer over generic OBD (PID A6 is rarely supported). The value shown is a separate ECU counter,
       "distance travelled since trouble codes were cleared" (PID 0x31). It differs from the cluster because:
       <ul style="margin:6px 0 0 18px;padding:0">
         <li><b>It counts from a different start point.</b> It began when the ECU's codes were last cleared, which may be at the factory, during pre-delivery checks or at a service. Distance driven at the plant, on test rigs or in transit can be included.</li>
@@ -1294,9 +1385,9 @@ $("#odoSave").onclick = async () => {
   const v = parseInt($("#odoIn").value.replace(/[^\d]/g, ""), 10), e = ecuKm();
   if (!v || v < 1) return alert("Enter the odometer reading from your instrument cluster in km.");
   if (e == null) return alert("The ECU distance counter hasn't been read yet. Wait a few seconds and try again.");
-  await api("/api/settings", {odo_ref_km: v, ecu_ref_km: e, odo_set_at: Date.now() / 1000}); $("#odoIn").value = "";
+  Object.assign(VEH(), {odo_ref_km: v, ecu_ref_km: e, odo_set_at: Date.now() / 1000}); saveVehicles(); $("#odoIn").value = "";
 };
-$("#odoClear").onclick = () => api("/api/settings", {odo_ref_km: null, ecu_ref_km: null, odo_set_at: null});
+$("#odoClear").onclick = () => { Object.assign(VEH(), {odo_ref_km: null, ecu_ref_km: null, odo_set_at: null}); saveVehicles(); };
 
 // ------------------------------------------------------------------ warnings
 function warnBox(title, html) { $("#wdT").textContent = title; $("#wdB").innerHTML = html; $("#warnDlg").showModal(); }
@@ -1307,8 +1398,8 @@ const SERVICE_INFO = {
   "10":["Diagnostic session control (UDS 0x10)","Switches the ECU into extended or programming session, which unlocks write and flashing functions."],
   "11":["ECU reset (UDS 0x11)","Reboots the engine computer. If the engine is running it will STALL. Can drop learned values."],
   "14":["Clear diagnostic information (UDS 0x14)","Wipes all DTCs and stored data in the targeted module, including non-emissions modules."],
-  "19":["Read DTC information (UDS 0x19)","Read-only in itself, but needs Hyundai-specific header setup, so it's not supported here."],
-  "22":["Read data by identifier (UDS 0x22)","Reads manufacturer data. Not dangerous, but needs Hyundai's private IDs and module addressing."],
+  "19":["Read DTC information (UDS 0x19)","Read-only in itself, but needs manufacturer-specific header setup, so it's not supported here."],
+  "22":["Read data by identifier (UDS 0x22)","Reads manufacturer data. Not dangerous, but needs the manufacturer's private IDs and module addressing."],
   "23":["Read memory by address (UDS 0x23)","Raw ECU memory read. Not supported."],
   "27":["Security access (UDS 0x27)","Unlocks protected ECU functions with a seed/key. Repeated wrong keys can lock the ECU out for a period."],
   "28":["Communication control (UDS 0x28)","Turns off CAN messaging between modules. Dashboard warnings and limp mode can follow."],
@@ -1368,6 +1459,93 @@ function impactHtml(x) {
 renderWF();
 let lastArmed = null;
 setInterval(() => { if (S && S.write_armed !== lastArmed) { lastArmed = S.write_armed; renderWF(); } }, 500);
+
+// ------------------------------------------------------------------ My vehicles: garage, editor, VIN detection
+const brandOf = label => (label || "").replace(/\s*\(.*\)$/, "").replace(/ (Motor India|Motors|Motor|Cars India|Kirloskar|Auto|MotoCorp|Motorcycle & Scooter India)$/, "").replace(" / Volkswagen India", "/VW");
+function applyVehicle() {
+  gaugeKey = ""; buildGauges(); buildSymptoms(); vehicleDone = "";
+  if (ENGINE?.kind === "direct" && ENGINE.setProtocol) ENGINE.setProtocol(VEH().protocol || "0");
+  if (S) render();
+}
+function openGarage() {
+  warnBox("My vehicles", `<p class="muted" style="margin-top:0">Pick the vehicle you're plugged into. Gauges, idle checks and protocol follow the selected profile.</p>
+    <div class="grid" style="gap:8px">${VEHICLES.map(v => `<div class="row" style="border:1px solid ${v.id === ACTIVE ? "var(--accent)" : "var(--line)"};border-radius:10px;padding:8px 10px">
+      <span style="font-size:22px">${VTYPES[v.type].icon}</span>
+      <div style="flex:1;min-width:0"><b>${esc(vehName(v))}</b>${v.id === ACTIVE ? ' <span class="tag info">Active</span>' : ""}
+        <div class="muted" style="font-size:12px">${esc([VTYPES[v.type].label, v.year, v.edition, v.vin ? "VIN …" + v.vin.slice(-6) : ""].filter(Boolean).join(" · "))}</div></div>
+      ${v.id === ACTIVE ? "" : `<button class="btn" type="button" data-use="${v.id}">Use</button>`}
+      <button class="btn" type="button" data-edit="${v.id}">Edit</button></div>`).join("")}</div>
+    <div class="row" style="margin-top:10px"><button class="btn primary" type="button" data-add="1">＋ Add vehicle</button></div>`);
+  $("#wdB").onclick = e => {
+    const u = e.target.closest("[data-use]"), ed = e.target.closest("[data-edit]"), add = e.target.closest("[data-add]");
+    if (u) { ACTIVE = u.dataset.use; saveVehicles(); applyVehicle(); openGarage(); }
+    if (ed) editVehicle(ed.dataset.edit);
+    if (add) editVehicle(null);
+  };
+}
+function editVehicle(id, prefill = {}) {
+  const isNew = !id, v = isNew ? newVehicle(prefill.type || "car", prefill) : {...VEHICLES.find(x => x.id === id)};
+  const f = (k, label, type = "text", ph = "") => `<label class="vf">${label}
+    <input type="${type}" data-f="${k}" value="${esc(v[k] ?? "")}" placeholder="${esc(ph)}" ${type === "number" ? 'inputmode="numeric"' : ""}></label>`;
+  warnBox(isNew ? "Add a vehicle" : "Edit vehicle", `
+    <div class="sym" style="margin-bottom:10px">${Object.entries(VTYPES).map(([k, t]) => `<label><input type="radio" name="vtype" value="${k}" ${v.type === k ? "checked" : ""}><span>${t.icon} ${t.label}</span></label>`).join("")}</div>
+    <div class="vgrid">
+      ${f("make", "Make", "text", "Hyundai, Maruti, Royal Enfield…")}${f("model", "Model", "text", "Creta, Swift, Classic 350…")}
+      ${f("year", "Year", "number", "2024")}${f("edition", "Variant", "text", "optional")}
+      ${f("redline", "Red zone from (rpm)", "number")}${f("rpmMax", "Rev gauge max (rpm)", "number")}
+      ${f("idleMin", "Warm idle from (rpm)", "number")}${f("idleMax", "Warm idle to (rpm)", "number")}
+      ${f("speedMax", "Speed gauge max (km/h)", "number")}<span></span>
+      <label class="vf" style="grid-column:1/-1">OBD protocol
+        <select data-f="protocol">
+        ${PROTOCOLS.map(([n, l]) => `<option value="${n}" ${String(v.protocol) === n ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+    </div>
+    <p class="muted" style="font-size:12px">Two-wheelers: most BS6 / Euro 5 bikes and scooters speak standard OBD, but usually need a small adapter cable from the bike's own diagnostic plug to the 16-pin OBD socket. If Auto-detect fails, try "KWP2000 fast init".</p>
+    <div class="row" style="justify-content:space-between;margin-top:10px">
+      ${!isNew && VEHICLES.length > 1 ? `<button class="btn danger" type="button" data-del="1">Delete</button>` : "<span></span>"}
+      <button class="btn primary" type="button" data-save="1">${isNew ? "Add & use" : "Save"}</button></div>`);
+  const body = $("#wdB");
+  body.onchange = e => {           // switching type refreshes the rpm/speed defaults
+    if (e.target.name !== "vtype") return;
+    const t = VTYPES[e.target.value];
+    ["rpmMax", "redline", "speedMax", "idleMin", "idleMax"].forEach(k => body.querySelector(`[data-f="${k}"]`).value = t[k]);
+  };
+  body.onclick = e => {
+    if (e.target.closest("[data-del]")) {
+      if (!confirm(`Delete ${vehName(v)}?`)) return;
+      VEHICLES = VEHICLES.filter(x => x.id !== v.id); if (ACTIVE === v.id) ACTIVE = VEHICLES[0].id;
+      saveVehicles(); applyVehicle(); return openGarage();
+    }
+    if (!e.target.closest("[data-save]")) return;
+    body.querySelectorAll("[data-f]").forEach(i => v[i.dataset.f] = i.type === "number" ? (+i.value || 0) : i.value.trim());
+    v.type = body.querySelector('input[name="vtype"]:checked')?.value || v.type;
+    if (v.redline > v.rpmMax) v.rpmMax = Math.ceil(v.redline / 1000) * 1000 + 1000;
+    if (isNew) VEHICLES.push(v); else VEHICLES = VEHICLES.map(x => x.id === v.id ? v : x);
+    ACTIVE = v.id; vstore.set("needsSetup", false); saveVehicles(); applyVehicle();
+    $("#warnDlg").close(); body.onclick = body.onchange = null;
+    toast(`${VTYPES[v.type].icon} Using <b>${esc(vehName(v))}</b>`, true, 3000);
+  };
+}
+$("#vehTitle").onclick = openGarage;
+
+// When the car reports its VIN: switch to the matching saved vehicle, fill in a blank profile, or offer to add a new one.
+let vinChecked = "";
+function checkVin() {
+  const vin = S?.info?.vin; if (!S.connected || !vin || vin.length < 11 || vin === vinChecked) return;
+  vinChecked = vin;
+  const known = VEHICLES.find(v => v.vin === vin), cur = VEH(), brand = brandOf(wmiLookup(vin));
+  const diesel = S.readiness?.ignition?.startsWith("Compression");
+  if (known) { if (known.id !== ACTIVE) { ACTIVE = known.id; saveVehicles(); applyVehicle(); toast(`🔁 Recognised <b>${esc(vehName(known))}</b> from its VIN`, true, 4000); } return; }
+  if (!cur.vin) {                // first connection for this profile: adopt the VIN, fill obvious blanks
+    cur.vin = vin; if (!cur.make && brand) cur.make = brand; if (!cur.year && vinYear(vin)) cur.year = String(vinYear(vin));
+    const asType = t => Object.assign(cur, {type: t, ...Object.fromEntries(["rpmMax", "redline", "speedMax", "idleMin", "idleMax"].map(k => [k, VTYPES[t][k]]))});
+    if (vstore.get("needsSetup", false) && BIKE_WMI.has(vin.slice(0, 3))) asType("bike");
+    else if (diesel && cur.type === "car") asType("diesel");
+    saveVehicles(); applyVehicle();
+    if (vstore.get("needsSetup", false)) toast(`Detected <b>${esc(brand || "your vehicle")}</b>. <button class="btn" onclick="editVehicle(VEH().id)">Add model details</button>`, true, 12000);
+    return;
+  }
+  toast(`New vehicle detected${brand ? `: <b>${esc(brand)}</b>` : ""}. <button class="btn primary" onclick="editVehicle(null, {type: '${diesel ? "diesel" : "car"}', make: '${esc(brand || "")}', vin: '${esc(vin)}', year: '${vinYear(vin) || ""}'})">Add it</button>`, false, 15000);
+}
 
 async function loadLog() { const t = await ENGINE.writelog(); $("#wlog").textContent = t || "No write actions have been performed."; }
 // offline support when hosted over https (GitHub Pages)

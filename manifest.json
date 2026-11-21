@@ -1,7 +1,7 @@
 {
-  "name": "Creta OBD",
-  "short_name": "Creta OBD",
-  "description": "Live engine data, trouble codes and diagnostics for the Hyundai Creta over a Bluetooth ELM327 adapter.",
+  "name": "OBD Dashboard",
+  "short_name": "OBD Dash",
+  "description": "Live engine data, trouble codes and diagnostics for cars and bikes over a Bluetooth ELM327 adapter.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

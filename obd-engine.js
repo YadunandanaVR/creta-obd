@@ -151,7 +151,8 @@ class WriteBlocked extends Error {}
 function guard(cmd, allowWrite = false) {
   const c = String(cmd).toUpperCase().replace(/\s+/g, "");
   if (c.startsWith("AT")) {
-    if (SAFE_AT.has(c) || /^ATST[0-9A-F]{2}$/.test(c)) return c;
+    // ATSTxx = reply timeout, ATSPn = choose OBD protocol (adapter settings only, nothing is sent to the car)
+    if (SAFE_AT.has(c) || /^ATST[0-9A-F]{2}$/.test(c) || /^ATSP[0-9A-C]$/.test(c)) return c;
     throw new WriteBlocked(`Adapter command '${c}' is not on the read-only allow-list`);
   }
   if (!/^[0-9A-F]{2,14}$/.test(c)) throw new WriteBlocked("Only hex OBD requests are allowed");
@@ -219,6 +220,14 @@ class DirectEngine {
     this.rx = ""; this.waiter = null; this.chain = Promise.resolve();
     this.log = [];
     this.rtt = []; this.lastRx = 0; this.linkEma = null;
+    this.protocol = "0"; this.isCan = true;
+  }
+  // OBD protocol from the vehicle profile ("0" = auto). Changing it re-initialises the adapter.
+  setProtocol(p) {
+    p = String(p || "0");
+    if (p === this.protocol) return;
+    this.protocol = p; this.log_(`Protocol set to ATSP${p}`);
+    if (this.connected) { this.connected = false; this.error = "Switching protocol…"; }
   }
 
   /* Bluetooth link quality, 0–100 %.
@@ -377,7 +386,7 @@ class DirectEngine {
   }
 
   async connectCar() {
-    for (const c of ["ATZ", "ATE0", "ATL0", "ATS0", "ATH0", "ATAT1", "ATSP0"]) {
+    for (const c of ["ATZ", "ATE0", "ATL0", "ATS0", "ATH0", "ATAT1", "ATSP" + (this.protocol || "0")]) {
       const r = await this.send(c, 3);
       if (c === "ATZ") this.log_(`Adapter reply to ATZ: ${r.join(" | ") || "(nothing)"}`);
     }
@@ -388,6 +397,12 @@ class DirectEngine {
     this.connected = true; this.error = "";
     this.info.adapter = (await this.send("ATI")).join(" ");
     this.info.protocol = (await this.send("ATDP")).join(" ").replace("AUTO,", "").trim();
+    // protocol number: 6–C are CAN (ISO 15765); 1–5 are J1850 / ISO 9141 / KWP2000 K-line, which format replies differently
+    const dpn = (await this.send("ATDPN")).join("").replace(/\s/g, "");
+    const pn = parseInt(dpn.slice(-1), 16);
+    this.isCan = isNaN(pn) ? true : pn >= 6;
+    this.info.can = this.isCan;
+    this.log_(`Protocol ${dpn || "?"} (${this.isCan ? "CAN" : "K-line / J1850"})`);
     await this.loadSupported();
     await this.loadVehicle();
   }
@@ -406,8 +421,11 @@ class DirectEngine {
   }
   async mode09(pid) {
     const lines = await this.send("09" + h2(pid), 4);
-    for (const m of DirectEngine.hexjoin(lines)) if (m.startsWith("49" + h2(pid))) return hexToBytes(m.slice(6));
-    return null;
+    const ms = DirectEngine.hexjoin(lines).filter(m => m.startsWith("49" + h2(pid)));
+    if (!ms.length) return null;
+    if (this.isCan || ms.length === 1) return hexToBytes(ms[0].slice(6));          // CAN: one ISO-TP message, skip item count
+    // K-line / J1850: one line per 4-byte chunk, each "49 PID <seq> d d d d": order by seq and join
+    return ms.map(m => [parseInt(m.slice(4, 6), 16), m.slice(6)]).sort((a, b) => a[0] - b[0]).flatMap(x => hexToBytes(x[1]));
   }
   async loadVehicle() {
     const ascii = b => b ? String.fromCharCode(...b).replace(/[^\x20-\x7E]/g, "").replace(/^[-\s]+|[-\s]+$/g, "") : null;
@@ -429,7 +447,7 @@ class DirectEngine {
     const lines = await this.send(mode, 5), rsp = h2(parseInt(mode, 16) + 0x40), codes = new Set();
     for (const m of DirectEngine.hexjoin(lines)) {
       if (!m.startsWith(rsp)) continue;
-      const body = m.slice(4);
+      const body = this.isCan ? m.slice(4) : m.slice(2);   // CAN has a code-count byte; K-line packs 3 codes per line with no count
       for (let i = 0; i + 3 < body.length; i += 4) if (body.slice(i, i + 4) !== "0000") codes.add(DirectEngine.decodeDtc(body.slice(i, i + 4)));
     }
     return [...codes].sort();
@@ -469,6 +487,10 @@ class DirectEngine {
   async pollPid(pid) { const d = await this.queryPid(pid); if (d && PIDS[pid]) this.live[pid] = this.fmt(pid, d); }
 
   async readMode06() {
+    if (!this.isCan) {   // pre-CAN Mode 06 uses a different, maker-defined layout
+      this.mode06 = {t: now(), mids: [], tests: [], note: "On-board test results are only decoded for CAN vehicles. This one uses K-line / J1850, where the layout is maker-specific."};
+      return;
+    }
     const mids = []; let base = 0;
     while (base <= 0xE0) {
       const ms = DirectEngine.hexjoin(await this.send("06" + h2(base), 4));

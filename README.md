@@ -1,6 +1,10 @@
-# Creta OBD
+# OBD Dashboard (creta-obd)
 
-A read-only-by-default OBD-II dashboard for the Hyundai Creta (works with most petrol cars on CAN), using a cheap Bluetooth ELM327 adapter.
+A read-only-by-default OBD-II dashboard for **cars, motorcycles and scooters**, using a cheap Bluetooth ELM327 adapter. It started as a Hyundai Creta dashboard.
+
+- **Cars:** any OBD-II / EOBD / BS-IV+ vehicle (petrol about 2001+, diesel about 2004+). CAN, KWP2000, ISO 9141 and J1850 protocols, auto-detected or chosen per vehicle.
+- **Bikes & scooters:** most BS6 / Euro 5 two-wheelers expose standard OBD, usually through a small adapter cable from the bike's own diagnostic plug to a 16-pin OBD socket. Some makers only allow their own tools.
+- **My vehicles:** save several profiles (rev limit, idle range, gauge scales, protocol, odometer calibration). The app recognises a vehicle from its VIN and switches automatically.
 
 ## Use it on an Android phone (no laptop)
 1. Pair the adapter: **Settings → Bluetooth → Pair new device → OBDII** (PIN `1234` or `0000`).
@@ -23,7 +27,7 @@ Then open http://127.0.0.1:8765.
 - On-board monitor test results (Mode 06), in-use performance counters
 - Battery health: charge %, charging check, cranking test
 - Symptom checker, live health checks, ECU distance → odometer calibration
-- Demo mode: open with `?demo=1` (or `?demo=dtc` for simulated fault codes)
+- Demo mode: open with `?demo=1` (or `?demo=dtc` for simulated fault codes, `?demo=bike` for an air-cooled K-line motorcycle)
 
 ## Safety
 Only OBD read services (01 02 03 06 07 09 0A) and info AT commands can be sent. The single write, Mode 04 (clear codes), needs write mode armed by the user + typed confirmation + engine off, and disarms after one use. Everything else (UDS writes, resets, coding, flashing) is blocked.
