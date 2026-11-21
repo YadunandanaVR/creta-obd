@@ -1,0 +1,6 @@
+# local data — never publish
+settings.json
+battery_tests.json
+write_log.txt
+.claude/
+__pycache__/

@@ -1,0 +1,1204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Creta OBD Dashboard</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/icon.svg">
+<link rel="apple-touch-icon" href="/icon.svg">
+<meta name="theme-color" content="#0b0f14">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Creta OBD">
+<style>
+:root{
+  --bg:#0b0f14; --panel:#121821; --panel2:#18212d; --line:#243142; --text:#e6edf5; --muted:#8a9bb0;
+  --accent:#3fa7ff; --ok:#2fd17a; --warn:#ffb020; --bad:#ff4d5e; --needle:#ff5a36;
+}
+:root[data-theme="light"]{
+  --bg:#eef2f6; --panel:#ffffff; --panel2:#f4f7fa; --line:#d5dde6; --text:#0f1720; --muted:#5b6b7d;
+  --accent:#0a6fd6; --ok:#13a058; --warn:#c77a00; --bad:#d4263a; --needle:#e0401c;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:5}
+header h1{font-size:17px;margin:0;font-weight:650;letter-spacing:.2px}
+header .sub{color:var(--muted);font-size:12px}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);font-size:12px;white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.dot.ok{background:var(--ok);box-shadow:0 0 8px var(--ok)} .dot.bad{background:var(--bad)} .dot.warn{background:var(--warn)}
+.spacer{flex:1}
+nav{display:flex;gap:4px;padding:8px 16px;overflow-x:auto;border-bottom:1px solid var(--line);background:var(--panel)}
+nav button{background:none;border:0;color:var(--muted);padding:8px 12px;border-radius:8px;font:inherit;cursor:pointer;white-space:nowrap}
+nav button.on{background:var(--panel2);color:var(--text);box-shadow:inset 0 -2px 0 var(--accent)}
+main{padding:16px;max-width:1280px;margin:0 auto}
+section{display:none} section.on{display:block}
+.grid{display:grid;gap:14px}
+.g-gauges{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.g-cards{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.card h2{font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin:0 0 10px;font-weight:600}
+.gauge{display:flex;flex-direction:column;align-items:center}
+.gauge svg{width:100%;max-width:300px;height:auto}
+.gauge .label{color:var(--muted);font-size:12px;margin-top:-6px}
+.needle{transition:transform .35s cubic-bezier(.3,.7,.3,1);transform-origin:150px 150px}
+.big{font-variant-numeric:tabular-nums}
+.minis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:14px}
+.mini{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.mini .k{color:var(--muted);font-size:11.5px}
+.mini .v{font-size:22px;font-weight:650;font-variant-numeric:tabular-nums}
+.mini .v small{font-size:12px;color:var(--muted);font-weight:500;margin-left:3px}
+.bar{height:6px;background:var(--panel2);border-radius:4px;overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
+table{width:100%;border-collapse:collapse}
+td,th{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:500;font-size:12px}
+td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pid{color:var(--muted);font-family:ui-monospace,Consolas,monospace;font-size:11px}
+.tag{display:inline-block;padding:2px 8px;border-radius:6px;font-size:12px;font-weight:600}
+.tag.ok{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
+.tag.bad{background:color-mix(in srgb,var(--bad) 18%,transparent);color:var(--bad)}
+.tag.warn{background:color-mix(in srgb,var(--warn) 20%,transparent);color:var(--warn)}
+.tag.mute{background:var(--panel2);color:var(--muted)}
+.hero{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.hero .icon{width:54px;height:54px;border-radius:14px;display:grid;place-items:center;font-size:26px}
+.hero .icon.ok{background:color-mix(in srgb,var(--ok) 18%,transparent)} .hero .icon.bad{background:color-mix(in srgb,var(--bad) 18%,transparent)}
+.hero h3{margin:0;font-size:20px}
+.muted{color:var(--muted)}
+.dtc{border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:10px;background:var(--panel2)}
+.dtc .code{font-family:ui-monospace,Consolas,monospace;font-size:18px;font-weight:700}
+.dtc ul{margin:6px 0 0 18px;padding:0}
+button.btn{background:var(--panel2);color:var(--text);border:1px solid var(--line);padding:8px 14px;border-radius:9px;font:inherit;cursor:pointer}
+button.btn:hover{border-color:var(--accent)}
+button.btn.danger{border-color:var(--bad);color:var(--bad)}
+button.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button:disabled{opacity:.45;cursor:not-allowed}
+input[type=text]{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:9px;padding:8px 10px;font:inherit;min-width:0}
+.console{background:#05080c;color:#9fe3b0;font-family:ui-monospace,Consolas,monospace;font-size:12.5px;border-radius:10px;padding:10px;height:280px;overflow:auto;white-space:pre-wrap}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.chk{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);align-items:flex-start}
+.chk .tag{flex:none;min-width:24px;text-align:center}
+.chk:last-child{border-bottom:0}
+.chk b{display:block}
+.sym{display:flex;flex-wrap:wrap;gap:6px}
+.sym label{border:1px solid var(--line);border-radius:999px;padding:5px 11px;cursor:pointer;background:var(--panel2);font-size:13px}
+.sym input{display:none}
+.sym input:checked+span{color:var(--accent);font-weight:600}
+canvas{width:100%;height:170px;display:block}
+.mode{cursor:pointer}
+.mode.write{background:color-mix(in srgb,var(--bad) 22%,transparent);border-color:var(--bad);color:var(--bad);font-weight:700}
+.banner{padding:10px 14px;border-radius:10px;margin-bottom:12px;border:1px solid var(--line);background:var(--panel2)}
+.banner.bad{border-color:var(--bad)}
+.feat{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}
+.feat div{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);font-size:13px}
+details.wf{border:1px solid var(--line);border-radius:12px;background:var(--panel2);margin-top:8px}
+details.wf summary{list-style:none;cursor:pointer;padding:12px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+details.wf summary::-webkit-details-marker{display:none}
+details.wf summary .t{font-weight:650;flex:1;min-width:180px}
+details.wf summary::after{content:"▸";color:var(--muted);transition:transform .2s}
+details.wf[open] summary::after{transform:rotate(90deg)}
+details.wf .body{padding:0 14px 14px;display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+details.wf .body h4{margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
+details.wf .body ul,details.wf .body ol{margin:0;padding-left:18px}
+details.wf .body p{margin:0}
+.chipbtn{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:999px;padding:5px 12px;font:inherit;font-size:13px;cursor:pointer}
+.chipbtn.on{border-color:var(--accent);color:var(--accent)}
+.tag.info{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent)}
+.warnbox{border:1px solid var(--warn);background:color-mix(in srgb,var(--warn) 10%,transparent);border-radius:10px;padding:10px 12px}
+.warnbox.bad{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 10%,transparent)}
+.warnbox h4{color:var(--warn)!important} .warnbox.bad h4{color:var(--bad)!important}
+.warnbox ul{margin:4px 0 0;padding-left:18px}
+.stat{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.stat .k{color:var(--muted);font-size:11.5px} .stat .v{font-size:20px;font-weight:650;font-variant-numeric:tabular-nums}
+.stat .s{font-size:12px;color:var(--muted)}
+.phase{font-size:22px;font-weight:800;text-align:center;padding:10px;border-radius:10px;background:var(--panel2)}
+.phase.go{background:var(--bad);color:#fff;animation:pulse 0.8s infinite alternate}
+@keyframes pulse{from{opacity:1}to{opacity:.6}}
+dialog{max-height:85vh;overflow:auto}
+[data-info]{cursor:help}
+tr[data-info] td:first-child::after,.mini[data-info] .k::after,.stat[data-info] .k::after,.gauge[data-info] h2::after{content:" ⓘ";color:var(--muted);opacity:.7;font-size:.9em}
+tr[data-info]:hover td{background:color-mix(in srgb,var(--accent) 6%,transparent)}
+#tip{position:fixed;z-index:50;max-width:300px;background:var(--panel);color:var(--text);border:1px solid var(--accent);border-radius:10px;padding:9px 11px;font-size:12.5px;line-height:1.4;box-shadow:0 8px 24px rgba(0,0,0,.35);pointer-events:none;display:none}
+#tip b{display:block;margin-bottom:3px}
+#tip .n{color:var(--ok);margin-top:4px}
+.infogrid{display:grid;gap:10px}
+.infogrid h4{margin:0 0 3px;font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
+.infogrid p{margin:0}
+.bignum{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums}
+dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:14px;max-width:520px;width:calc(100% - 32px)}
+dialog::backdrop{background:rgba(0,0,0,.6)}
+@media (max-width:600px){
+  header h1{font-size:15px} .mini .v{font-size:19px} main{padding:10px}
+  header{gap:6px 8px;padding:8px 12px} .pill{font-size:11px;padding:3px 8px} header .btn{padding:5px 10px}
+  header .sub{font-size:11px}
+  .g-gauges{grid-template-columns:1fr 1fr;gap:8px}
+  .card.gauge{padding:8px 6px} .card.gauge h2{font-size:10px;letter-spacing:.4px;margin-bottom:2px}
+  #batNote{display:none} #batState,#batHealthMini{font-size:11px;text-align:center}
+  .minis{grid-template-columns:1fr 1fr;gap:8px} .mini{padding:8px 10px}
+  nav{padding:6px 10px} nav button{padding:7px 10px}
+  .card{padding:12px}
+}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Hyundai Creta · OBD-II</h1>
+    <div class="sub" id="subtitle">2024 King edition · connecting…</div>
+  </div>
+  <span class="pill"><span class="dot" id="connDot"></span><span id="connTxt">Connecting</span></span>
+  <span class="pill">🔋 <span id="hdrVolt">–</span></span>
+  <span class="pill" id="hdrMil">MIL –</span>
+  <span class="spacer"></span>
+  <span class="pill mode" id="modePill" title="Click to change mode">🔒 READ-ONLY</span>
+  <button class="btn primary" id="connectBtn" style="display:none">🔗 Connect</button>
+  <button class="btn" id="helpBtn" title="How to use on a phone">?</button>
+  <button class="btn" id="themeBtn" title="Toggle theme">◐</button>
+</header>
+<nav id="tabs">
+  <button data-t="dash" class="on">Dashboard</button>
+  <button data-t="diag">Diagnostics &amp; codes</button>
+  <button data-t="data">All live data</button>
+  <button data-t="vehicle">Vehicle &amp; features</button>
+  <button data-t="console">Console</button>
+  <button data-t="write">Features &amp; write mode</button>
+</nav>
+<main>
+  <div class="banner bad" id="discBanner" style="display:none"></div>
+
+  <!-- DASHBOARD -->
+  <section id="dash" class="on">
+    <div class="grid g-gauges">
+      <div class="card gauge" data-info="0C"><h2>Engine speed</h2><svg id="gRpm" viewBox="0 0 300 230"></svg></div>
+      <div class="card gauge" data-info="0D"><h2>Vehicle speed</h2><svg id="gSpd" viewBox="0 0 300 230"></svg></div>
+      <div class="card gauge" data-info="67"><h2>Coolant temperature</h2><svg id="gTmp" viewBox="0 0 300 230"></svg></div>
+      <div class="card gauge" data-info="BAT"><h2>12 V battery</h2><svg id="gBat" viewBox="0 0 300 230"></svg>
+        <div class="label" id="batState" style="margin-top:2px;font-weight:600"></div>
+        <div class="label" id="batNote" style="text-align:center;margin-top:4px"></div>
+        <div class="label" id="batHealthMini" style="margin-top:6px"></div></div>
+    </div>
+    <div class="minis" id="minis"></div>
+    <div class="card" style="margin-top:14px"><h2>Last 2 minutes</h2>
+      <div class="row muted" style="font-size:12px;margin-bottom:6px">
+        <span style="color:#ff5a36">■ RPM</span><span style="color:#3fa7ff">■ Speed</span><span style="color:#2fd17a">■ Coolant</span><span style="color:#ffb020">■ Load</span>
+      </div>
+      <canvas id="chart"></canvas>
+    </div>
+  </section>
+
+  <!-- DIAGNOSTICS -->
+  <section id="diag">
+    <div class="grid g-cards">
+      <div class="card" style="grid-column:1/-1">
+        <div class="hero">
+          <div class="icon" id="dtcIcon">…</div>
+          <div><h3 id="dtcHead">Reading trouble codes…</h3><div class="muted" id="dtcSub"></div></div>
+          <span class="spacer"></span>
+          <button class="btn" id="rescan">↻ Re-scan now</button>
+        </div>
+        <div id="dtcList"></div>
+      </div>
+      <div class="card" style="grid-column:1/-1" id="batCard"><h2>Battery health</h2>
+        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px" id="batStats"></div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn primary" id="batTestBtn">▶ Run cranking test</button>
+          <span class="muted" style="font-size:12.5px">Engine off, ignition ON. Press the button, wait for "START THE ENGINE NOW", then start the car normally. Read-only: it only samples voltage rapidly.</span>
+        </div>
+        <div id="batLive" style="margin-top:10px"></div>
+        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr));margin-top:10px">
+          <div><div class="muted" style="font-size:12px;margin-bottom:4px">Voltage trend (this session)</div><svg id="vTrend" viewBox="0 0 400 90" style="width:100%;height:90px"></svg></div>
+          <div><div class="muted" style="font-size:12px;margin-bottom:4px">Past cranking tests</div><table id="batHist"></table></div>
+        </div>
+      </div>
+      <div class="card"><h2>Readiness monitors</h2><div id="ready"></div></div>
+      <div class="card"><h2>Live health checks</h2><div id="health"></div></div>
+      <div class="card" id="freezeCard" style="display:none"><h2>Freeze frame</h2><div id="freeze"></div></div>
+      <div class="card" style="grid-column:1/-1"><h2>On-board monitor test results (Mode 06)</h2>
+        <div class="row"><button class="btn" id="m06Btn">▶ Read test results</button>
+          <span class="muted" style="font-size:12.5px">These are the engine computer's own pass/fail tests for misfire, catalyst, O2 sensors, EVAP and more, with the measured value and the allowed limits. A result close to its limit can flag a part that's starting to fail before any code appears. Read-only.</span></div>
+        <div id="m06" style="margin-top:10px"></div>
+      </div>
+      <div class="card" style="grid-column:1/-1"><h2>Usage &amp; monitor counters (in-use performance)</h2><div id="iupr" class="muted">–</div></div>
+      <div class="card" style="grid-column:1/-1"><h2>Symptom checker</h2>
+        <p class="muted" style="margin-top:0">Tick what you're noticing. The checker matches it against the live data and lists likely causes for this car.</p>
+        <div class="sym" id="symptoms"></div>
+        <div id="symOut" style="margin-top:12px"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ALL DATA -->
+  <section id="data">
+    <div class="row" style="margin-bottom:12px">
+      <input type="text" id="filter" placeholder="Filter parameters…" style="flex:1;max-width:340px">
+      <button class="btn" id="csvBtn">⬇ Export history CSV</button>
+    </div>
+    <div class="grid g-cards" id="groups"></div>
+  </section>
+
+  <!-- VEHICLE -->
+  <section id="vehicle">
+    <div class="grid g-cards">
+      <div class="card"><h2>Identity</h2><table id="vinfo"></table></div>
+      <div class="card"><h2>Adapter &amp; link</h2><table id="ainfo"></table></div>
+      <div class="card" style="grid-column:1/-1"><h2>Distance &amp; odometer</h2>
+        <div id="odoInfo"></div>
+        <div class="row" style="margin-top:10px">
+          <input type="text" id="odoIn" inputmode="numeric" placeholder="Odometer on your cluster, km (e.g. 5287)" style="flex:1;max-width:300px">
+          <button class="btn primary" id="odoSave">Calibrate</button>
+          <button class="btn" id="odoClear">Remove calibration</button>
+        </div>
+      </div>
+      <div class="card" style="grid-column:1/-1"><h2>What this car exposes over OBD-II</h2>
+        <p class="muted" style="margin-top:0" id="featIntro"></p><div class="feat" id="features"></div></div>
+      <div class="card" style="grid-column:1/-1"><h2>Not reachable with generic OBD-II</h2>
+        <p class="muted" style="margin-top:0">These live on other modules (body, ABS, airbag, cluster, ADAS, infotainment). Hyundai only exposes them through its own diagnostic protocol (GDS / KDS). A generic ELM327 can't read them safely without Hyundai's private IDs, so this tool doesn't try.</p>
+        <div class="feat">
+          <div>🛞 Tyre pressures (TPMS)</div><div>⛽ Fuel level &amp; range (cluster)</div><div>🧭 Odometer / service interval</div>
+          <div>🛑 ABS / ESC codes (C-codes)</div><div>💺 Airbag codes (B-codes)</div><div>🚪 Doors, lights, sunroof</div>
+          <div>📡 ADAS / camera calibration</div><div>🔑 Smart key / immobiliser</div><div>⚙ Transmission fluid temp (TCM)</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONSOLE -->
+  <section id="console">
+    <div class="card">
+      <h2>Read-only command console</h2>
+      <p class="muted" style="margin-top:0">Send raw ELM327 or OBD requests. Only read services (01, 02, 03, 06, 07, 09, 0A) and info AT commands are allowed. Everything else is blocked by the server.</p>
+      <div class="console" id="conOut"></div>
+      <div class="row" style="margin-top:8px">
+        <input type="text" id="conIn" placeholder="e.g. 010C  or  ATRV  or  0902" style="flex:1">
+        <button class="btn primary" id="conSend">Send</button>
+      </div>
+      <div class="row" style="margin-top:8px" id="conQuick"></div>
+    </div>
+  </section>
+
+  <!-- WRITE -->
+  <section id="write">
+    <div class="grid g-cards">
+      <div class="card">
+        <h2>Mode</h2>
+        <p>The tool starts and stays in <b>read-only</b> mode. It never sends a write to the car on its own.</p>
+        <p class="muted">The only write it supports is <b>OBD Mode 04: clear trouble codes &amp; turn off the check-engine light</b>. You have to arm it here yourself, and it disarms after one action or 2 minutes.</p>
+        <div class="row">
+          <button class="btn danger" id="armBtn">Arm write mode…</button>
+          <button class="btn" id="disarmBtn">Back to read-only</button>
+          <span id="armState" class="muted"></span>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Clear trouble codes (Mode 04)</h2>
+        <p class="muted">Before you clear:</p>
+        <ul class="muted" style="margin-top:0">
+          <li>Fix the underlying fault first. Otherwise the code comes back.</li>
+          <li>Clearing also wipes freeze-frame data and resets every readiness monitor to "not ready". Monitors need roughly 1–3 normal drive cycles to complete again.</li>
+          <li>Permanent codes (Mode 0A) can't be erased this way. The ECU clears them itself after it confirms the repair.</li>
+          <li>Ignition ON, engine OFF. The server refuses if it sees RPM.</li>
+        </ul>
+        <button class="btn danger" id="clearBtn" disabled>Clear codes…</button>
+        <div id="clearOut" style="margin-top:10px"></div>
+      </div>
+      <div class="card" style="grid-column:1/-1"><h2>All features for your Creta: read-only &amp; write</h2>
+        <p class="muted" style="margin-top:0">Everything this tool can read, plus everything that changes something in the car: what each one does, its risk, and how it's done. <span class="tag info">Read-only</span> items never change anything. Only items marked <span class="tag ok">Available here</span> send a command from this tool. <span class="tag warn">Guided</span> items are procedures you do yourself with the car's controls, and the dashboard helps you check the result. <span class="tag mute">Dealer only</span> items need Hyundai's GDS software, because a generic adapter can't do them safely.</p>
+        <div class="row" id="wfFilter" style="margin-bottom:8px"></div>
+        <div id="wfeat"></div>
+      </div>
+      <div class="card" style="grid-column:1/-1"><h2>Write log</h2><pre id="wlog" class="muted" style="white-space:pre-wrap;margin:0">–</pre></div>
+    </div>
+  </section>
+</main>
+
+<div id="tip"></div>
+<script src="obd-engine.js"></script>
+<script src="obd-demo.js"></script>
+<dialog id="infoDlg"><form method="dialog">
+  <div id="infoBody"></div>
+  <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="btn primary" value="ok">Close</button></div>
+</form></dialog>
+<dialog id="warnDlg"><form method="dialog">
+  <h3 id="wdT" style="margin-top:0"></h3><div id="wdB"></div>
+  <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="btn primary" value="ok">Understood</button></div>
+</form></dialog>
+<dialog id="dlg"><form method="dialog">
+  <h3 id="dlgT" style="margin-top:0"></h3><div id="dlgB"></div>
+  <p>Type <b id="dlgW"></b> to confirm:</p>
+  <input type="text" id="dlgIn" style="width:100%" autocomplete="off">
+  <div class="row" style="margin-top:14px;justify-content:flex-end">
+    <button class="btn" value="cancel">Cancel</button>
+    <button class="btn danger" id="dlgOk" value="ok">Confirm</button>
+  </div>
+</form></dialog>
+
+<script>
+// ------------------------------------------------------------------ helpers
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let S = null;   // last state
+// Engine: laptop server (server.py), direct Bluetooth from this device (Web Serial), or demo
+let ENGINE = null;
+const QS = new URLSearchParams(location.search);
+async function pickEngine() {
+  if (QS.has("demo")) {
+    const e = new OBD.DirectEngine(); e.demo = true;
+    await e.setPort(new OBDDemo.MockPort(QS.get("demo") === "dtc")); return e;
+  }
+  if (QS.get("mode") !== "direct") {
+    try {
+      const ctl = new AbortController(); setTimeout(() => ctl.abort(), 1500);
+      const r = await fetch("/api/state", {signal: ctl.signal, cache: "no-store"});
+      if (r.ok && (r.headers.get("content-type") || "").includes("json")) return new OBD.ServerEngine();
+    } catch (e) {}
+  }
+  const e = new OBD.DirectEngine();
+  try { await e.reuse(); } catch (err) {}
+  return e;
+}
+const api = (path, body) => ENGINE.post(path, body);
+const L = pid => S?.live?.[pid]?.value;
+const coolant = () => L("67") ?? L("05");
+const fmt = (v, d = 0) => v == null || v === "" ? "–" : (typeof v === "number" ? v.toFixed(d) : v);
+
+try { const t = localStorage.getItem("obdTheme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+$("#themeBtn").onclick = () => {
+  const n = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+  document.documentElement.dataset.theme = n; try { localStorage.setItem("obdTheme", n); } catch (e) {}
+};
+document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("on", x === b));
+  document.querySelectorAll("main section").forEach(s => s.classList.toggle("on", s.id === b.dataset.t));
+  scrollTo(0, 0);
+  if (b.dataset.t === "write") loadLog();
+});
+
+// ------------------------------------------------------------------ field explanations
+// key: [title, what it is, normal for your Creta (1.5 petrol), what abnormal means]
+const INFO = {
+ "0C":["Engine RPM","How fast the crankshaft is turning, in revolutions per minute.","Warm idle 650–800 rpm. Cold start idles higher (1,000–1,300 rpm) for the first minute or two. Normal driving is 1,500–3,000. The rev limit is about 6,300–6,500.","Idle that hunts up and down or drops below 550 rpm points to a dirty throttle body, a vacuum leak or a misfire. Warm idle stuck above 1,000 rpm points to an air leak or a sticking throttle."],
+ "0D":["Vehicle speed","Speed as measured by the engine computer (from the wheel-speed signal).","Matches your GPS speed closely. The cluster speedometer usually reads 2–5 % higher on purpose.","Reading 0 while moving suggests a wheel-speed sensor or ABS fault (P0500)."],
+ "67":["Coolant temperature","Temperature of the engine coolant. The main 'is the engine warm' signal.","Rises to 85–100 °C within about 10 min of driving. The radiator fan cuts in around 100–105 °C. In slow traffic 100–105 °C is normal.","Never reaching 80 °C means the thermostat is stuck open (P0128) and fuel economy suffers. Above 110 °C is overheating: stop and check the coolant level when cold."],
+ "05":["Coolant temperature","Temperature of the engine coolant.","85–100 °C when warm.","Above 110 °C is overheating. Never warming up points to the thermostat."],
+ "04":["Calculated engine load","How hard the engine is working compared with its maximum at this RPM.","Idle 15–30 %, steady cruise 20–50 %, full acceleration up to 100 %.","High load at idle (over 40 %) suggests a parasitic drag: A/C, alternator or a brake binding."],
+ "11":["Throttle position (absolute)","How far the electronic throttle valve is open. It never reads 0 because of the sensor's offset.","About 15–18 % when closed (normal, not a fault), up to about 80–90 % at full throttle.","A jumpy reading with a steady foot can mean a faulty throttle sensor (P0121/P2135)."],
+ "0B":["Intake manifold pressure (MAP)","Air pressure inside the intake. Low means vacuum (engine sucking hard against a closed throttle).","Engine off: equal to barometric pressure (about 90–101 kPa). Warm idle about 25–40 kPa. Full throttle back near barometric.","Idle MAP above about 45 kPa can indicate a vacuum leak, valve-timing issue or low compression."],
+ "0E":["Ignition timing advance","How many degrees before top-dead-centre the spark plug fires. More advance gives more efficiency, up to the knock limit.","Idle 0–15°, cruise 20–40°. It drops briefly under hard acceleration.","Timing that stays low or negative under load means the knock sensor is pulling timing: poor-quality fuel or carbon build-up. Use 91+ octane."],
+ "0F":["Intake air temperature","Temperature of the air entering the engine.","A little above outside temperature when moving. 10–25 °C above it in traffic or after parking (heat soak).","Hotter air gives less power. A reading of -40 °C or a fixed value means a sensor or wiring fault."],
+ "10":["Mass air flow (MAF)","Grams of air per second entering the engine. The ECU calculates fuel from this.","Warm idle about 2–4 g/s, cruise 5–20 g/s, full throttle 60–90 g/s for a 1.5 L engine. Engine off: 0.","Low at full throttle means a clogged air filter or dirty sensor. Erratic readings at idle mean a dirty MAF (P0101)."],
+ "06":["Short-term fuel trim","Instant fuel correction. Positive means the ECU is adding fuel (mixture was lean), negative means it's removing fuel.","Swinging quickly around 0, within ±10 %. Shows 0 when the engine is off or cold (open loop).","Stuck above +10 % means a lean condition: vacuum leak or weak fuel delivery. Below -10 % means rich: leaking injector or purge valve."],
+ "07":["Long-term fuel trim","The learned fuel correction the ECU keeps over time. Best indicator of engine mixture health.","Within ±5 % is excellent, up to ±10 % is acceptable.","Above +10 % (lean) points to vacuum leaks, dirty MAF or low fuel pressure (P0171). Below -10 % (rich) points to injectors, purge valve or air filter (P0172). Short + long together over ±15 % needs attention."],
+ "03":["Fuel system status","Whether the ECU is using oxygen-sensor feedback to control the mixture.","'Closed loop' once warm (the normal efficient mode). 'Open loop' when cold, under full throttle or when decelerating. 'Off' with the engine stopped.","'Open loop (fault)' means a sensor problem is preventing closed-loop control."],
+ "13":["O2 sensors present","Which oxygen sensors the engine has.","B1S1 = upstream (before catalyst, wide-band), B1S2 = downstream (after catalyst). This is the correct layout for your 4-cylinder engine.",""],
+ "15":["Downstream O2 sensor voltage (B1S2)","Oxygen sensor after the catalytic converter. It confirms the catalyst is cleaning the exhaust.","Fairly steady, 0.5–0.8 V when warm and cruising. Engine off it may read about 1 V or more (heater/idle state).","If it switches up and down as fast as the upstream sensor, the catalyst is worn (P0420). Stuck at 0.1 V means an exhaust leak or failed sensor."],
+ "34":["Upstream wide-band air-fuel sensor (λ)","Measures the exact air-fuel ratio leaving the engine. λ = 1.00 is the ideal mixture (14.7:1 for petrol).","0.97–1.03 in closed loop. Below 1 (rich) under full throttle, above 1 (lean) on deceleration fuel-cut.","Stuck lean or rich, or slow to react, points to an ageing sensor (P2195/P2196/P0133)."],
+ "1C":["OBD standard","Which emissions-diagnostics standard the car was certified to.","Indian BS-VI cars report an IOBD / OBD-II compatible value. A 'type N' number just isn't in this tool's table.",""],
+ "1F":["Run time since engine start","Seconds since the engine was started this trip.","Counts up from 0 at each start.",""],
+ "21":["Distance with check-engine light on","Kilometres driven while the MIL was lit.","0 km. Anything above 0 means a fault was active while driving.",""],
+ "2C":["Commanded EGR","How much the ECU commands exhaust gas recirculation. On your engine the 'EGR/VVT' function is mostly done by cam-timing (internal EGR), so this often stays at 0 %.","Mostly 0 %, sometimes rising at light cruise.",""],
+ "2D":["EGR error","Difference between commanded and actual EGR.","Near 0 %.","Large persistent error means a sticking EGR/VVT component."],
+ "2E":["Commanded evaporative purge","How much the ECU opens the purge valve to burn fuel vapour from the charcoal canister.","0 % when cold or idle, varies 0–100 % when warm and cruising.","Purge always 0 % when warm points to an evap system issue. A purge valve stuck open causes rough idle after refuelling."],
+ "30":["Warm-ups since codes cleared","Number of times the engine warmed up (by at least 22 °C to over 70 °C) since codes were last cleared.","Grows with use.","Resets to 0 when codes are cleared, which is a hint someone cleared codes recently (e.g. before selling a car)."],
+ "31":["Distance since codes cleared (not odometer)","Engine computer counter of km since trouble codes were last cleared. It is NOT the odometer.","Typically 2–3 % different from your cluster odometer, and may include factory or transit distance. See Vehicle & features → Distance & odometer.","A low value on a used car means codes were cleared recently."],
+ "33":["Barometric pressure","Outside air pressure, used for altitude compensation.","About 101 kPa at sea level, about 90 kPa at 1,000 m. It changes slightly with weather.",""],
+ "3C":["Catalyst temperature (B1S1)","Estimated temperature of the catalytic converter.","400–800 °C when running. It stays warm for a while after the engine stops.","Above 850–900 °C points to misfire or rich running, which damages the catalyst."],
+ "41":["Monitor status this drive cycle","Which self-tests have completed during the current trip.","See the Readiness monitors card.",""],
+ "42":["ECU supply voltage","Voltage at the engine computer, close to battery voltage.","Engine off 12.2–12.8 V, running 13.2–14.8 V.","Same meaning as battery voltage: low means the battery is weak or not charging."],
+ "43":["Absolute engine load","Air mass per stroke as a percentage. Similar to calculated load, but can exceed 100 % on boosted engines.","Idle 15–30 %, full throttle about 80–100 %.",""],
+ "44":["Commanded air-fuel ratio (λ)","Mixture the ECU is aiming for.","1.00 in normal driving, less than 1 under full throttle. Engine off may show 2.0 (no target).",""],
+ "45":["Relative throttle position","Throttle opening relative to its learned closed position.","About 0–10 % at idle (yours shows the learned offset), up to about 80 % at full throttle.",""],
+ "46":["Ambient air temperature","Outside air temperature.","Matches the weather. It may read high just after driving in traffic.",""],
+ "47":["Absolute throttle position B","Second throttle sensor track (a safety-redundant copy).","Tracks throttle position A closely.","A and B disagreeing sets P2135 (throttle correlation)."],
+ "49":["Accelerator pedal position D","Your foot on the pedal (primary sensor).","About 14–16 % released, rising to about 80 % floored.","Values that don't return to rest point to a pedal sensor issue (P2138)."],
+ "4A":["Accelerator pedal position E","Redundant pedal sensor. It reads about half of sensor D by design.","About 7 % released.","Disagreement with D sets P2138."],
+ "4C":["Commanded throttle actuator","Where the ECU is telling the electronic throttle motor to go.","Small (1–5 %) at idle, follows your pedal while driving.",""],
+ "51":["Fuel type","Fuel the engine is certified for.","Petrol.",""],
+ "55":["Secondary O2 short-term trim","Fine mixture correction based on the downstream (after-catalyst) sensor.","Near 0 %.","Persistently large means the catalyst or rear sensor is drifting (P2096/P2097)."],
+ "56":["Secondary O2 long-term trim","Learned correction from the downstream O2 sensor.","Within about ±3 %.",""],
+ "01":["Monitor status since codes cleared","Check-engine light state, number of stored codes, and which emissions self-tests are supported or complete.","MIL OFF, 0 codes.",""],
+ "RV":["Battery voltage at OBD port","Voltage measured by the adapter at the diagnostic socket (directly from the 12 V battery).","Engine off 12.4–12.8 V (healthy, charged). Running 13.2–14.8 V. Your Creta's smart alternator lets it dip to about 12.6–13 V while cruising to save fuel.","Engine off below 12.2 V means discharged. Running below 13.0 V for long periods means the alternator isn't charging."],
+ "BAT":["Battery charge %","State of charge of the 12 V battery, estimated from resting voltage (the car doesn't report a % over OBD).","75–100 % is good. Most accurate after the car has been parked for an hour or more.","Below 50 % means charge it (a 30+ min drive or a charger). Repeatedly low means the battery is ageing or there's a parasitic drain."],
+ "SOC":["Charge (state of charge)","How full the battery is right now. Not the same as health: a healthy battery can be flat, and a worn battery can show 100 % but fail under load.","75–100 %.",""],
+ "SOH":["Battery health (cranking test)","How well the battery holds voltage while the starter motor draws 100–200 A. The best do-it-yourself health indicator.","Lowest voltage while cranking ≥ 10.5 V: good. 10.0–10.5: fair. 9.6–10.0: weak. Below 9.6: replace soon.","Health drops with age (typically 2–4 years in Indian heat). Test when the battery is charged for a fair result."],
+ "CHG":["Charging system","Battery voltage while the engine runs, showing whether the alternator is charging.","13.2–14.8 V. A smart alternator can sit at 12.6–13 V at steady cruise, which is normal.","Below 12.8 V all the time means the alternator or belt is failing. Above 15 V means overcharging (regulator)."],
+ "LASTT":["Last battery test","When the cranking test was last run.","Re-test every few months, or before a long trip.",""],
+ "IGN":["Ignition cycles","Number of engine start / key-on cycles the engine computer has counted.","Grows by one each start.",""],
+ "OBDC":["Drives meeting OBD conditions","Trips that were long enough (about 10 min, including idle and >40 km/h) for the emissions monitors to run.","Grows with normal driving.",""],
+ "ODO":["Odometer (estimated)","Live odometer estimate from the ECU distance counter, calibrated against your cluster reading.","Should match your cluster within a few km. Re-calibrate occasionally.",""],
+ "DIFF":["ECU vs cluster difference","How much the ECU distance counter differs from your cluster odometer.","A few percent is normal.",""],
+ "mon:Misfire":["Misfire monitor","Continuously checks every cylinder for misfires using crankshaft speed fluctuations.","Ready.","Not ready only right after codes were cleared."],
+ "mon:Fuel system":["Fuel system monitor","Checks the fuel trims stay within limits (catches leaks, injector and pump problems).","Ready.",""],
+ "mon:Components":["Comprehensive components monitor","Checks all emissions-related sensors and actuators for electrical faults.","Ready.",""],
+ "mon:Catalyst":["Catalyst monitor","Tests catalytic converter efficiency by comparing upstream and downstream O2 sensors.","Ready. Needs steady cruising at 50–90 km/h to complete.","Fails with P0420 when the catalyst is worn."],
+ "mon:Oxygen sensor":["Oxygen sensor monitor","Tests O2 sensor response speed and range.","Ready.",""],
+ "mon:O2 sensor heater":["O2 heater monitor","Tests the O2 sensor heaters that bring sensors to working temperature quickly.","Ready.",""],
+ "mon:EGR/VVT":["EGR / variable valve timing monitor","Tests that the variable cam timing (and EGR) reaches its commanded positions.","Ready.","Failures often relate to oil level or condition (P0011/P0014)."],
+ "mon:Evaporative system":["EVAP monitor","Leak-tests the fuel vapour system.","Ready. Needs a cold start and a specific fuel level to run.","Loose fuel cap is the #1 cause of failure."],
+};
+function fieldValue(k) {
+  if (k === "RV") return S?.voltage != null ? S.voltage + " V" : null;
+  if (k === "BAT" || k === "SOC") { const b = battery(); return b.pct != null ? b.pct + " %" : null; }
+  const v = S?.live?.[k]; return v ? `${typeof v.value === "number" ? fmt(v.value, Number.isInteger(v.value) ? 0 : 2) : v.value} ${v.unit}` : null;
+}
+const tip = $("#tip");
+document.addEventListener("mouseover", e => {
+  const el = e.target.closest("[data-info]"); if (!el || !INFO[el.dataset.info] || matchMedia("(hover: none)").matches) return;
+  const [t, w, n] = INFO[el.dataset.info];
+  tip.innerHTML = `<b>${esc(t)}</b>${esc(w)}<div class="n">Normal: ${esc(n)}</div><div class="muted" style="margin-top:4px">Click for details</div>`;
+  tip.style.display = "block";
+});
+document.addEventListener("mousemove", e => {
+  if (tip.style.display !== "block") return;
+  const x = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 8), y = e.clientY + 18 + tip.offsetHeight > innerHeight ? e.clientY - tip.offsetHeight - 10 : e.clientY + 18;
+  tip.style.left = x + "px"; tip.style.top = y + "px";
+});
+document.addEventListener("mouseout", e => { if (e.target.closest("[data-info]") && !e.relatedTarget?.closest?.("[data-info]")) tip.style.display = "none"; });
+document.addEventListener("click", e => {
+  const el = e.target.closest("[data-info]"); if (!el || e.target.closest("button,a,input,summary")) return;
+  const k = el.dataset.info, inf = INFO[k]; if (!inf) return;
+  tip.style.display = "none";
+  const cur = fieldValue(k);
+  $("#infoBody").innerHTML = `<h3 style="margin-top:0">${esc(inf[0])} ${/^[0-9A-F]{2}$/.test(k) ? `<span class="pid">PID 0x${k}</span>` : ""}</h3>
+    ${cur ? `<div class="bignum">${esc(cur)}</div><div class="muted" style="margin-bottom:10px">current value</div>` : ""}
+    <div class="infogrid"><div><h4>What it is</h4><p>${esc(inf[1])}</p></div>
+    <div><h4 style="color:var(--ok)">Normal for your Creta</h4><p>${esc(inf[2])}</p></div>
+    ${inf[3] ? `<div class="warnbox"><h4 style="margin:0">If it's out of range</h4><p style="margin:4px 0 0">${esc(inf[3])}</p></div>` : ""}</div>`;
+  $("#infoDlg").showModal();
+});
+
+// ------------------------------------------------------------------ gauges
+function polar(cx, cy, r, a) { const t = (a - 90) * Math.PI / 180; return [cx + r * Math.cos(t), cy + r * Math.sin(t)]; }
+function arc(cx, cy, r, a0, a1) {
+  const [x0, y0] = polar(cx, cy, r, a0), [x1, y1] = polar(cx, cy, r, a1);
+  return `M${x0} ${y0} A${r} ${r} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${x1} ${y1}`;
+}
+const A0 = -125, A1 = 125;
+function makeGauge(svg, o) {
+  const ang = v => A0 + (A1 - A0) * Math.min(1, Math.max(0, (v - o.min) / (o.max - o.min)));
+  let h = `<path d="${arc(150,150,118,A0,A1)}" stroke="var(--panel2)" stroke-width="16" fill="none" stroke-linecap="round"/>`;
+  (o.zones || []).forEach(z => h += `<path d="${arc(150,150,118,ang(z[0]),ang(z[1]))}" stroke="${z[2]}" stroke-width="16" fill="none" opacity=".85"/>`);
+  h += `<path id="${svg.id}Fill" d="" stroke="var(--accent)" stroke-width="5" fill="none" stroke-linecap="round" opacity=".9"/>`;
+  for (let v = o.min; v <= o.max + 1e-9; v += o.minor) {
+    const major = Math.abs((v - o.min) / o.major - Math.round((v - o.min) / o.major)) < 1e-6;
+    const a = ang(v), [x0, y0] = polar(150,150,major ? 98 : 104,a), [x1, y1] = polar(150,150,108,a);
+    h += `<line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y1}" stroke="var(--muted)" stroke-width="${major ? 2.2 : 1}"/>`;
+    if (major) { const [tx, ty] = polar(150,150,84,a); h += `<text x="${tx}" y="${ty + 4}" fill="var(--muted)" font-size="12" text-anchor="middle">${o.tick ? o.tick(v) : v}</text>`; }
+  }
+  h += `<g class="needle" id="${svg.id}N" style="transform:rotate(${A0}deg)"><path d="M147 150 L150 46 L153 150 Z" fill="var(--needle)"/></g>
+        <circle cx="150" cy="150" r="9" fill="var(--panel2)" stroke="var(--needle)" stroke-width="2"/>
+        <text x="150" y="196" text-anchor="middle" font-size="34" font-weight="700" fill="var(--text)" class="big" id="${svg.id}V">–</text>
+        <text x="150" y="216" text-anchor="middle" font-size="12" fill="var(--muted)">${o.unit}</text>`;
+  svg.innerHTML = h;
+  return v => {
+    const a = v == null ? A0 : ang(v);
+    $(`#${svg.id}N`).style.transform = `rotate(${a}deg)`;
+    $(`#${svg.id}V`).textContent = v == null ? "–" : (o.fmt ? o.fmt(v) : Math.round(v));
+    $(`#${svg.id}Fill`).setAttribute("d", v == null || a <= A0 + .5 ? "" : arc(150,150,132,A0,a));
+    const z = (o.zones || []).find(z => v >= z[0] && v <= z[1]);
+    $(`#${svg.id}V`).setAttribute("fill", z && z[3] ? z[2] : "var(--text)");
+  };
+}
+const gRpm = makeGauge($("#gRpm"), {min:0,max:8000,major:1000,minor:250,unit:"rpm",tick:v=>v/1000,
+  zones:[[6000,6500,"var(--warn)",1],[6500,8000,"var(--bad)",1]]});
+const gSpd = makeGauge($("#gSpd"), {min:0,max:220,major:20,minor:10,unit:"km/h"});
+const gTmp = makeGauge($("#gTmp"), {min:40,max:130,major:10,minor:5,unit:"°C coolant",
+  zones:[[40,70,"var(--accent)",1],[70,105,"var(--ok)",0],[105,112,"var(--warn)",1],[112,130,"var(--bad)",1]]});
+
+const gBat = makeGauge($("#gBat"), {min:0,max:100,major:20,minor:10,unit:"% charge (estimated)",
+  zones:[[0,40,"var(--bad)",1],[40,70,"var(--warn)",1],[70,100,"var(--ok)",0]]});
+
+// 12 V lead-acid state of charge from resting voltage. The car doesn't report battery %
+// over OBD, so this is the standard open-circuit-voltage estimate.
+const SOC = [[11.30,0],[11.51,10],[11.66,20],[11.81,30],[11.96,40],[12.10,50],[12.24,60],[12.37,70],[12.50,80],[12.62,90],[12.73,100]];
+let lastRest = null, lastRunT = 0;
+function socFromV(v) {
+  v += 0.10;   // ignition-on load (ECU, fuel pump prime, lights) pulls the reading ~0.1 V below true rest
+  if (v <= SOC[0][0]) return 0; if (v >= SOC[SOC.length - 1][0]) return 100;
+  for (let i = 1; i < SOC.length; i++) if (v <= SOC[i][0]) {
+    const [v0, p0] = SOC[i - 1], [v1, p1] = SOC[i]; return p0 + (v - v0) / (v1 - v0) * (p1 - p0); }
+}
+function battery() {
+  const v = S?.voltage ?? L("42"), rpm = L("0C");
+  if (v == null) return {pct: null, state: "–", note: ""};
+  const running = rpm > 300;
+  if (running) {
+    lastRunT = Date.now();
+    const st = v >= 13.2 ? "Charging" : v >= 12.8 ? "Charging lightly (smart alternator)" : "NOT charging";
+    return {pct: lastRest, v, running, state: `${st} · ${v.toFixed(2)} V`,
+      note: "With the engine running, voltage reflects the alternator, so the gauge holds the last engine-off estimate."};
+  }
+  const pct = Math.round(socFromV(v)); lastRest = pct;
+  const recent = Date.now() - lastRunT < 10 * 60e3 && lastRunT;
+  const st = pct >= 75 ? "Good" : pct >= 50 ? "Fair, recharge soon" : pct >= 30 ? "Low" : "Very low, may not start";
+  return {pct, v, running, state: `${st} · ${v.toFixed(2)} V`,
+    note: recent ? "Engine stopped recently, so surface charge reads high. Most accurate after 1 h+ parked." :
+      "Estimated from resting voltage (engine off). Most accurate after the car has been parked for an hour or more."};
+}
+
+const MINIS = [
+  ["04","Engine load","%",0,100],["11","Throttle","%",0,100],["0B","Manifold pressure","kPa",0,110],
+  ["0F","Intake air","°C"],["46","Ambient air","°C"],["0E","Timing advance","°",-10,50],
+  ["10","Air flow (MAF)","g/s",0,150],["06","Short fuel trim","%",-25,25],["07","Long fuel trim","%",-25,25],
+  ["42","ECU voltage","V",10,16],["3C","Catalyst temp","°C",0,900],["1F","Run time","s"],
+];
+$("#minis").innerHTML = MINIS.map(m => `<div class="mini" data-p="${m[0]}" data-info="${m[0]}"><div class="k">${m[1]}</div>
+  <div class="v"><span>–</span><small>${m[2]}</small></div>${m[3] != null ? '<div class="bar"><i></i></div>' : ""}</div>`).join("");
+
+// ------------------------------------------------------------------ chart
+function drawChart() {
+  const c = $("#chart"), dpr = devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  if (!w) return;
+  c.width = w * dpr; c.height = h * dpr;
+  const x = c.getContext("2d"); x.scale(dpr, dpr); x.clearRect(0, 0, w, h);
+  const H = S?.history || []; if (H.length < 2) return;
+  const t1 = H[H.length - 1].t, t0 = t1 - 120;
+  const css = getComputedStyle(document.documentElement);
+  x.strokeStyle = css.getPropertyValue("--line"); x.lineWidth = 1;
+  for (let i = 1; i < 4; i++) { x.beginPath(); x.moveTo(0, h * i / 4); x.lineTo(w, h * i / 4); x.stroke(); }
+  [["rpm",8000,"#ff5a36"],["speed",220,"#3fa7ff"],["coolant",130,"#2fd17a"],["load",100,"#ffb020"]].forEach(([k, max, col]) => {
+    x.strokeStyle = col; x.lineWidth = 2; x.beginPath(); let st = false;
+    H.forEach(p => { if (p.t < t0 || p[k] == null) return;
+      const px = (p.t - t0) / 120 * w, py = h - 4 - (p[k] / max) * (h - 8);
+      st ? x.lineTo(px, py) : (x.moveTo(px, py), st = true); });
+    x.stroke();
+  });
+}
+addEventListener("resize", drawChart);
+
+// ------------------------------------------------------------------ DTC knowledge
+const DTC = {
+ P0010:["Intake camshaft position actuator circuit (Bank 1)","med",["CVVT oil control valve (OCV) wiring or connector","Faulty OCV solenoid"],["Check OCV connector and resistance (≈6.9–7.9 Ω)","Replace the OCV if it's open or shorted"]],
+ P0011:["Intake cam timing over-advanced (Bank 1)","med",["Low or dirty engine oil","Sticking CVVT oil control valve or filter","Timing chain stretch"],["Check oil level and grade (0W-20 / 5W-30 per manual) and change if overdue","Clean or replace the OCV and its filter screen","Check timing chain alignment"]],
+ P0012:["Intake cam timing over-retarded (Bank 1)","med",["Low oil pressure","Stuck OCV","Chain/tensioner wear"],["Same checks as P0011"]],
+ P0013:["Exhaust camshaft actuator circuit (Bank 1)","med",["Exhaust OCV wiring or solenoid"],["Inspect connector and measure OCV resistance"]],
+ P0014:["Exhaust cam timing over-advanced (Bank 1)","med",["Oil condition","Exhaust OCV sticking"],["Oil change, then clean/replace exhaust OCV"]],
+ P0016:["Crank/cam position correlation (Bank 1)","high",["Timing chain stretched or jumped a tooth","Faulty CMP/CKP sensor","Tone wheel damage"],["Check timing marks","Test the CMP and CKP sensors","Have a workshop check chain stretch"]],
+ P0030:["O2 sensor heater control circuit (B1S1)","low",["Upstream O2 heater open","Fuse or wiring"],["Check the sensor heater resistance and its fuse"]],
+ P0036:["O2 sensor heater control circuit (B1S2)","low",["Downstream O2 heater open"],["Check heater resistance and wiring; replace sensor"]],
+ P0068:["MAP/MAF vs throttle position correlation","med",["Vacuum leak","Dirty throttle body","Faulty MAP sensor"],["Clean throttle body","Smoke-test for intake leaks"]],
+ P0101:["MAF sensor range/performance","med",["Dirty MAF sensor","Air leak after the MAF","Clogged air filter"],["Clean the MAF with MAF cleaner (no touching)","Replace the air filter","Check intake hoses and clamps"]],
+ P0102:["MAF circuit low","med",["Unplugged/damaged MAF connector","Failed MAF"],["Check the connector and wiring, then replace the MAF"]],
+ P0106:["MAP sensor range/performance","med",["Vacuum leak","Blocked MAP port"],["Inspect hoses and clean the MAP sensor port"]],
+ P0107:["MAP circuit low","med",["MAP wiring/connector"],["Check the 5 V reference and ground"]],
+ P0108:["MAP circuit high","med",["MAP wiring short","Failed sensor"],["Inspect wiring; replace sensor"]],
+ P0111:["Intake air temp sensor range","low",["IAT sensor drift"],["Compare IAT with ambient on a cold engine"]],
+ P0112:["Intake air temp sensor low","low",["Short in IAT circuit"],["Check wiring/connector"]],
+ P0113:["Intake air temp sensor high","low",["IAT unplugged/open"],["Reconnect or replace the IAT/MAF assembly"]],
+ P0116:["Coolant temp sensor range/performance","med",["Sensor drift","Thermostat stuck open"],["Compare ECT with ambient on a cold engine","Check the thermostat"]],
+ P0117:["Coolant temp sensor low","med",["Short in ECT circuit"],["Check the ECT connector and wiring"]],
+ P0118:["Coolant temp sensor high","med",["ECT open circuit"],["Check the connector; replace the ECT sensor"]],
+ P0121:["Throttle/pedal position sensor A range","high",["Dirty throttle body","Failing electronic throttle"],["Clean the throttle body and do the throttle relearn (ignition ON 10 s, idle 10 min)"]],
+ P0122:["Throttle position sensor A low","high",["ETC wiring"],["Inspect the throttle body connector"]],
+ P0123:["Throttle position sensor A high","high",["ETC wiring short"],["Inspect wiring; replace throttle body"]],
+ P0125:["Coolant temp too low for closed-loop","low",["Thermostat stuck open","ECT sensor"],["Replace the thermostat if the engine is slow to warm up"]],
+ P0128:["Coolant below thermostat regulating temperature","low",["Thermostat stuck open (most common)","ECT sensor reading low"],["Watch the coolant gauge here. It should reach 85–95 °C after about 10 min of driving","Replace the thermostat and gasket"]],
+ P0130:["O2 sensor circuit (B1S1)","med",["Upstream O2 / air-fuel sensor"],["Check the sensor and wiring for exhaust heat damage"]],
+ P0133:["O2 sensor slow response (B1S1)","med",["Aged upstream sensor","Exhaust leak"],["Replace the upstream sensor"]],
+ P0136:["O2 sensor circuit (B1S2)","low",["Downstream sensor or wiring"],["Inspect, then replace the downstream O2 sensor"]],
+ P0137:["O2 sensor low voltage (B1S2)","low",["Exhaust leak before the sensor","Failed sensor"],["Check for exhaust leaks"]],
+ P0138:["O2 sensor high voltage (B1S2)","low",["Sensor short","Rich running"],["Check fuel trims; replace the sensor"]],
+ P0171:["System too lean (Bank 1)","med",["Vacuum/intake leak (PCV hose, intake gasket)","Dirty MAF","Weak fuel pump or clogged filter","Clogged injectors"],["Look at long-term fuel trim on the Diagnostics tab. Above +10 % at idle that drops when revved points to a vacuum leak","Clean the MAF","Smoke-test the intake","Check fuel pressure"]],
+ P0172:["System too rich (Bank 1)","med",["Leaking injector","Dirty air filter","Faulty MAF/O2 sensor","High fuel pressure"],["Replace the air filter","Check the injectors","Check the purge valve isn't stuck open"]],
+ P0261:["Cylinder 1 injector circuit low","high",["Injector wiring/connector"],["Check injector resistance (~12–14 Ω)"]],
+ P0300:["Random/multiple cylinder misfire","high",["Worn spark plugs","Ignition coil","Vacuum leak","Low fuel pressure","Bad fuel"],["Don't drive hard. A sustained misfire can damage the catalyst","Check the spark plugs (iridium, replace per service schedule)","Swap coils between cylinders to find the fault"]],
+ P0301:["Cylinder 1 misfire","high",["Plug, coil or injector on cyl 1"],["Swap the coil with another cylinder. If the code moves, replace that coil"]],
+ P0302:["Cylinder 2 misfire","high",["Plug, coil or injector on cyl 2"],["Swap the coil and recheck"]],
+ P0303:["Cylinder 3 misfire","high",["Plug, coil or injector on cyl 3"],["Swap the coil and recheck"]],
+ P0304:["Cylinder 4 misfire","high",["Plug, coil or injector on cyl 4"],["Swap the coil and recheck"]],
+ P0325:["Knock sensor circuit","med",["Knock sensor connector","Sensor failure"],["Check the connector and torque (≈20 Nm)"]],
+ P0335:["Crankshaft position sensor circuit","high",["CKP sensor","Wiring","Tone wheel"],["Test or replace the CKP sensor. The car may stall or not start"]],
+ P0340:["Camshaft position sensor circuit","high",["CMP sensor","Wiring"],["Test or replace the CMP sensor"]],
+ P0400:["EGR flow","med",["EGR valve sticking/carbon","Blocked passages"],["Clean or replace the EGR valve"]],
+ P0420:["Catalyst efficiency below threshold (Bank 1)","med",["Ageing catalytic converter","Faulty downstream O2 sensor","Exhaust leak","Prior misfires"],["Fix any misfire/fuel trim codes first","Compare upstream vs downstream O2 activity. Downstream should stay steady","Replace the catalyst if confirmed"]],
+ P0441:["Evap incorrect purge flow","low",["Purge control solenoid valve (PCSV)","Hoses"],["Test the PCSV. It should hold vacuum when off"]],
+ P0442:["Evap small leak","low",["Loose fuel cap","Cracked hose"],["Tighten or replace the fuel cap and recheck after a few drive cycles"]],
+ P0455:["Evap large leak","low",["Fuel cap missing/loose","Disconnected hose","Canister close valve"],["Check the fuel cap first, then smoke-test the evap system"]],
+ P0456:["Evap very small leak","low",["Fuel cap seal"],["Replace the fuel cap"]],
+ P0496:["Evap high purge flow","low",["Purge valve stuck open"],["Replace the PCSV"]],
+ P0497:["Evap low purge flow","low",["Purge valve stuck closed","Blocked line"],["Test the PCSV and lines"]],
+ P0500:["Vehicle speed sensor","med",["Wheel speed sensor (via ABS)","Wiring"],["Read the ABS module with a Hyundai-capable scanner"]],
+ P0506:["Idle speed lower than expected","low",["Dirty throttle body","Vacuum leak"],["Clean the throttle body and do an idle relearn"]],
+ P0507:["Idle speed higher than expected","low",["Vacuum leak","Throttle body"],["Check for intake leaks and clean the throttle"]],
+ P0532:["A/C refrigerant pressure sensor low","low",["Low refrigerant","Sensor"],["Have the A/C system pressure-checked"]],
+ P0562:["System voltage low","med",["Weak battery","Alternator/belt","Poor ground"],["Check battery voltage here: about 12.6 V engine off, 13.5–14.7 V running","Load-test the battery"]],
+ P0563:["System voltage high","med",["Alternator regulator"],["Check charging voltage; replace the alternator if above ~15 V"]],
+ P0600:["Serial communication link","high",["ECU internal/CAN"],["Workshop diagnosis"]],
+ P0601:["ECM memory checksum error","high",["ECU software"],["Dealer reflash"]],
+ P0606:["ECM processor fault","high",["ECU fault"],["Dealer diagnosis"]],
+ P0627:["Fuel pump control circuit open","high",["Fuel pump relay/wiring"],["Check the fuel pump fuse and relay"]],
+ P0650:["MIL control circuit","low",["Cluster/wiring"],["Workshop"]],
+ P0700:["Transmission control system (TCM has a code)","med",["TCM stored a fault"],["Read the TCM with a Hyundai-capable scanner (GDS)"]],
+ P0705:["Transmission range sensor","med",["Inhibitor switch"],["Check the inhibitor switch adjustment"]],
+ P0715:["Input/turbine speed sensor","med",["Sensor/wiring"],["Workshop"]],
+ P0741:["Torque converter clutch stuck off","med",["Fluid condition","TCC solenoid"],["Check the transmission fluid; workshop"]],
+ P2096:["Post-catalyst fuel trim too lean","low",["Exhaust leak","O2 sensor"],["Check for exhaust leaks near the downstream sensor"]],
+ P2097:["Post-catalyst fuel trim too rich","low",["Catalyst/O2 sensor"],["Check catalyst efficiency"]],
+ P2135:["Throttle position sensor A/B correlation","high",["Throttle body","Wiring"],["Clean or replace the electronic throttle body"]],
+ P2138:["Accelerator pedal sensor D/E correlation","high",["Pedal module","Wiring"],["Replace the accelerator pedal module"]],
+ P2187:["System too lean at idle","med",["Vacuum leak","PCV valve"],["Smoke-test; check the PCV hose"]],
+ P2188:["System too rich at idle","med",["Leaky injector","Purge valve stuck open"],["Check the purge valve and injectors"]],
+ P2195:["O2 sensor signal stuck lean (B1S1)","med",["Air-fuel sensor","Exhaust leak"],["Replace the upstream sensor after checking for leaks"]],
+ P2196:["O2 sensor signal stuck rich (B1S1)","med",["Air-fuel sensor","Rich condition"],["Check trims; replace the sensor"]],
+ U0001:["High-speed CAN bus","high",["CAN wiring/termination"],["Workshop CAN check"]],
+ U0100:["Lost communication with ECM","high",["ECM power/ground","CAN wiring"],["Check ECM fuses and grounds"]],
+ U0101:["Lost communication with TCM","high",["TCM power","CAN wiring"],["Check TCM fuses"]],
+ U0121:["Lost communication with ABS","high",["ABS module power","CAN"],["Check ABS fuses"]],
+ U0140:["Lost communication with body control module","med",["BCM/CAN"],["Workshop"]],
+ U0155:["Lost communication with instrument cluster","med",["Cluster/CAN"],["Workshop"]],
+};
+const SYS = {"0":"fuel & air metering","1":"fuel & air metering","2":"injector circuit","3":"ignition / misfire",
+  "4":"auxiliary emissions","5":"speed, idle & inputs","6":"computer & outputs","7":"transmission","8":"transmission","9":"transmission","A":"hybrid propulsion","B":"hybrid propulsion","C":"hybrid propulsion"};
+function dtcInfo(c) {
+  if (DTC[c]) { const [d, sev, cause, fix] = DTC[c]; return {d, sev, cause, fix}; }
+  const generic = c[1] === "0" || c[1] === "2";
+  const area = c[0] === "P" ? SYS[c[2]] : ({C:"chassis (ABS/steering)",B:"body",U:"network"})[c[0]];
+  return {d: `${generic ? "Generic" : "Hyundai-specific"} code in ${area || "unknown area"}`, sev: "med",
+    cause: [generic ? "Not in the built-in library" : "Manufacturer-specific code. Its exact meaning is in Hyundai GDS"],
+    fix: ["Search the exact code for 'Hyundai Creta " + c + "'", "A Hyundai service centre can read details with GDS"]};
+}
+const SEV = {high:["bad","Fix soon"],med:["warn","Attention"],low:["mute","Minor"]};
+
+// ------------------------------------------------------------------ diagnostics rendering
+function renderDiag() {
+  const d = S.dtc || {}, all = [...(d.stored||[]).map(c=>[c,"Stored"]),...(d.pending||[]).map(c=>[c,"Pending"]),...(d.permanent||[]).map(c=>[c,"Permanent"])];
+  const mil = S.readiness?.mil;
+  $("#hdrMil").innerHTML = S.readiness ? (mil ? '<span class="dot bad"></span>Check engine ON' : '<span class="dot ok"></span>Check engine off') : "MIL –";
+  if (!d.updated) { $("#dtcHead").textContent = "Reading trouble codes…"; return; }
+  const ok = all.length === 0;
+  $("#dtcIcon").className = "icon " + (ok ? "ok" : "bad"); $("#dtcIcon").textContent = ok ? "✓" : "!";
+  $("#dtcHead").textContent = ok ? "No trouble codes" : `${all.length} trouble code${all.length > 1 ? "s" : ""} found`;
+  $("#dtcSub").textContent = `Stored ${d.stored.length} · Pending ${d.pending.length} · Permanent ${d.permanent.length} · Check-engine light ${mil ? "ON" : "off"} · scanned ${new Date(d.updated * 1000).toLocaleTimeString()}`;
+  $("#dtcList").innerHTML = ok ? `<p class="muted">The engine ECU reports nothing stored, pending or permanent. The scan repeats every 20 seconds.</p>` :
+    all.map(([c, kind]) => { const i = dtcInfo(c), s = SEV[i.sev];
+      return `<div class="dtc"><div class="row"><span class="code">${c}</span><span class="tag ${s[0]}">${s[1]}</span><span class="tag mute">${kind}</span></div>
+      <div style="margin-top:4px"><b>${esc(i.d)}</b></div>
+      <div class="muted" style="margin-top:6px">Likely causes</div><ul>${i.cause.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>
+      <div class="muted" style="margin-top:6px">What to do</div><ul>${i.fix.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`; }).join("");
+  const r = S.readiness;
+  $("#ready").innerHTML = !r ? "–" : `<div class="muted" style="margin-bottom:6px">Ignition type: ${r.ignition}</div><table>` +
+    r.monitors.map(m => `<tr${INFO["mon:" + m.name] ? ` data-info="mon:${m.name}"` : ""}><td>${m.name}</td><td class="num"><span class="tag ${m.ready ? "ok" : "warn"}">${m.ready ? "Ready" : "Not ready"}</span></td></tr>`).join("") + "</table>";
+  const f = S.freeze;
+  $("#freezeCard").style.display = f ? "" : "none";
+  if (f) $("#freeze").innerHTML = `<p>Snapshot captured when <b>${f.dtc}</b> was set:</p><table>` +
+    f.values.map(v => `<tr><td>${v.name}</td><td class="num">${fmt(v.value, 1)} ${v.unit}</td></tr>`).join("") + "</table>";
+}
+
+function healthChecks() {
+  const out = [], rpm = L("0C"), run = rpm > 300, ct = coolant(), v = S.voltage ?? L("42");
+  const push = (lvl, t, d) => out.push({lvl, t, d});
+  if (v != null) {
+    if (!run) v < 12.0 ? push("bad","Battery low",`${v} V with engine off. Below 12.0 V the battery is deeply discharged. Charge or test it.`)
+      : v < 12.4 ? push("warn","Battery a bit low",`${v} V engine-off (healthy is ≈12.6 V). Short trips or an ageing battery are the usual cause.`)
+      : push("ok","Battery",`${v} V engine-off (≈${Math.round(socFromV(v))}% charge). Good.`);
+    else v < 13.2 ? push("bad","Charging low",`${v} V while running. The alternator or belt may not be charging properly.`)
+      : v > 15.0 ? push("bad","Charging high",`${v} V. Regulator overcharging.`) : push("ok","Charging system",`${v} V while running. Normal (smart alternator varies 12.5–14.8 V).`);
+  }
+  if (ct != null) ct > 110 ? push("bad","Engine hot",`Coolant ${ct} °C. Pull over safely, let it idle with the A/C off, and check the coolant level once it's cool.`)
+    : ct > 104 ? push("warn","Coolant warm",`${ct} °C. Upper end of normal in traffic. Fan should be cycling.`)
+    : (run && ct < 70 && L("1F") > 900) ? push("warn","Slow to warm up",`${ct} °C after ${Math.round(L("1F")/60)} min. Possible thermostat stuck open (P0128).`)
+    : push("ok","Coolant temperature",`${ct} °C${run ? "" : " (engine off)"}.`);
+  if (run) {
+    const st = L("06"), lt = L("07");
+    if (st != null && lt != null) { const tot = st + lt;
+      Math.abs(tot) > 15 ? push("bad",`Fuel trim ${tot > 0 ? "lean" : "rich"}`,`Total trim ${tot.toFixed(1)} %. ${tot > 0 ? "Engine adding fuel. Look for vacuum leaks, a dirty MAF or low fuel pressure." : "Engine removing fuel. Check for a leaky injector, a stuck purge valve or a dirty air filter."}`)
+      : Math.abs(tot) > 8 ? push("warn","Fuel trim drifting",`Total ${tot.toFixed(1)} % (short ${st.toFixed(1)} / long ${lt.toFixed(1)}). Keep an eye on it.`)
+      : push("ok","Fuel trims",`Total ${tot.toFixed(1)} %. Mixture is well controlled.`); }
+    if (L("0D") === 0 && rpm != null) rpm > 1100 && ct > 70 ? push("warn","Idle high",`${Math.round(rpm)} rpm warm idle (expected ~650–800). Check for an intake leak or A/C load.`)
+      : rpm < 550 ? push("warn","Idle low",`${Math.round(rpm)} rpm. Possible rough idle or a dirty throttle body.`) : push("ok","Idle speed",`${Math.round(rpm)} rpm.`);
+    const iat = L("0F"), amb = L("46");
+    if (iat != null && amb != null && iat - amb > 30 && L("0D") > 30) push("warn","Hot intake air",`Intake ${iat} °C vs ambient ${amb} °C. Heat soak reduces power.`);
+    const cat = L("3C"); if (cat != null && cat > 850) push("bad","Catalyst very hot",`${cat} °C. Can indicate misfire or rich running.`);
+  } else push("mute","Engine not running","Start the engine for fuel trim, idle and charging checks.");
+  if (S.readiness?.monitors?.some(m => !m.ready)) push("warn","Some monitors not ready","Normal right after codes were cleared or the battery was disconnected. Drive normally for a few days.");
+  const ic = {ok:"✓",warn:"!",bad:"✕",mute:"·"};
+  $("#health").innerHTML = out.map(o => `<div class="chk"><span class="tag ${o.lvl}">${ic[o.lvl]}</span><div><b>${o.t}</b><span class="muted">${esc(o.d)}</span></div></div>`).join("");
+}
+
+const SYMPTOMS = {
+  "Check-engine light on": {pids:[], causes:["Read the codes at the top of this tab. Each has its own cause list"]},
+  "Rough / shaky idle": {pids:["0C","06","07","0B"], causes:["Worn spark plugs or ignition coil (P030x)","Dirty throttle body (common after 20–30k km; clean & relearn)","Vacuum leak: look for a positive long-term fuel trim","Engine mounts (vibration without data anomalies)"]},
+  "Poor pickup / sluggish": {pids:["04","11","0B","10","0E"], causes:["Clogged air filter: low MAF at full throttle","Retarded ignition timing from low-octane fuel (knock)","IVT/automatic in Eco mode; try Normal or Sport","Clutch slip (manual): RPM rises faster than speed"]},
+  "High fuel consumption": {pids:["06","07","67","5E"], causes:["Engine never fully warming up (thermostat)","Rich mixture: negative fuel trims","Low tyre pressure / dragging brakes (not visible via OBD)","Short trips & heavy idle with A/C"]},
+  "Overheating / temp gauge high": {pids:["67","05","0C"], causes:["Low coolant: check the reservoir when cold","Radiator fan not switching on (fuse/relay)","Blocked radiator fins","Thermostat stuck closed or water pump"]},
+  "Hard starting": {pids:["42","67"], causes:["Weak battery: check the voltage reading","Fuel pump / relay","Crank or cam sensor (P0335/P0340)","Immobiliser/smart-key issue (not readable via OBD)"]},
+  "Hesitation / jerks while accelerating": {pids:["11","49","0C","04"], causes:["Misfire under load (plugs/coils)","Dirty injectors / bad fuel","Throttle or pedal sensor glitch (P2135/P2138)","Transmission shift quality (TCM, needs Hyundai GDS)"]},
+  "Battery keeps draining": {pids:["42"], causes:["Ageing battery (2+ years in Indian heat)","Parasitic drain: accessories, dashcam hard-wired","Alternator not charging: check running voltage"]},
+  "Rotten-egg smell / exhaust smoke": {pids:["06","07","3C"], causes:["Rich running overheating the catalyst","Catalyst failing (P0420)","Blue smoke = oil burning, white = coolant, black = rich"]},
+  "AC not cooling well": {pids:["0C","67"], causes:["Low refrigerant / leak (P0532)","Condenser blocked with dust","Cabin filter clogged","Compressor clutch (HVAC module, not on OBD)"]},
+};
+$("#symptoms").innerHTML = Object.keys(SYMPTOMS).map((k, i) => `<label><input type="checkbox" value="${i}"><span>${k}</span></label>`).join("");
+$("#symptoms").onchange = renderSymptoms;
+function renderSymptoms() {
+  const keys = Object.keys(SYMPTOMS), sel = [...document.querySelectorAll("#symptoms input:checked")].map(i => keys[+i.value]);
+  if (!sel.length) { $("#symOut").innerHTML = ""; return; }
+  $("#symOut").innerHTML = sel.map(k => { const s = SYMPTOMS[k];
+    const live = s.pids.filter(p => S?.live?.[p]).map(p => `<span class="tag mute">${S.live[p].name}: ${fmt(S.live[p].value, 1)} ${S.live[p].unit}</span>`).join(" ");
+    return `<div class="dtc"><b>${k}</b>${live ? `<div class="row" style="margin-top:6px">${live}</div>` : ""}
+      <ul>${s.causes.map(c => `<li>${esc(c)}</li>`).join("")}</ul></div>`; }).join("");
+}
+
+// ------------------------------------------------------------------ all data / vehicle
+const GROUP_ORDER = ["Engine","Temperatures","Fuel & Air","Oxygen sensors","Emissions","Electrical","Distance & Time","Status"];
+function renderData() {
+  const q = $("#filter").value.toLowerCase(), groups = {};
+  Object.values(S.live || {}).forEach(v => { if (q && !v.name.toLowerCase().includes(q)) return; (groups[v.group] ||= []).push(v); });
+  if (S.voltage != null && (!q || "battery".includes(q))) (groups["Electrical"] ||= []).unshift({pid:"RV", name:"Battery voltage at OBD port", unit:"V", value:S.voltage});
+  $("#groups").innerHTML = GROUP_ORDER.filter(g => groups[g]).map(g => `<div class="card"><h2>${g}</h2><table>` +
+    groups[g].sort((a, b) => a.pid.localeCompare(b.pid)).map(v => `<tr${INFO[v.pid] ? ` data-info="${v.pid}"` : ""}><td>${esc(v.name)} <span class="pid">${v.pid}</span></td>
+    <td class="num">${typeof v.value === "number" ? fmt(v.value, Number.isInteger(v.value) ? 0 : (v.unit === "V" || v.unit === "λ" ? 3 : 1)) : esc(v.value ?? "–")} <span class="muted">${v.unit}</span></td></tr>`).join("") + "</table></div>").join("")
+    || `<p class="muted">${S.connected ? "Waiting for data…" : "Not connected."}</p>`;
+}
+let vehicleDone = "";
+function renderVehicle() {
+  const i = S.info || {}, key = JSON.stringify(i);
+  if (key === vehicleDone) return; vehicleDone = key;
+  const vin = i.vin || "";
+  const row = (k, v) => `<tr><td class="muted">${k}</td><td>${esc(v ?? "–")}</td></tr>`;
+  $("#vinfo").innerHTML = row("Model", "Hyundai Creta (2024 King edition)") + row("VIN", vin) +
+    row("Manufacturer (WMI)", vin.startsWith("MAL") ? "MAL = Hyundai Motor India, Chennai" : vin.slice(0, 3)) +
+    row("Model-year code", vin[9] ? `${vin[9]} (VIN position 10)` : "–") + row("Engine ECU", i.ecu_name) +
+    row("Calibration ID", i.calibration_id) + row("Calibration check (CVN)", i.cvn) +
+    row("Fuel type", S.live?.["51"]?.value) + row("OBD standard", S.live?.["1C"]?.value);
+  $("#ainfo").innerHTML = row("Adapter", i.adapter) + row("Port", S.port) + row("Protocol", i.protocol) +
+    row("ECUs answering OBD", (i.ecu_list || []).join(", ")) + row("Supported live PIDs", (i.supported_pids || []).length);
+  const sup = i.supported_pids || [];
+  $("#featIntro").textContent = `The engine ECU reports ${sup.length} supported Mode 01 parameters. They're all polled continuously and listed in "All live data". Supported capabilities:`;
+  const F = [["0C","Live engine RPM"],["0D","Vehicle speed"],["67","Coolant temperature"],["05","Coolant temperature"],["0F","Intake air temperature"],["46","Ambient temperature"],
+    ["04","Engine load"],["11","Throttle position"],["49","Accelerator pedal position"],["10","Mass air flow"],["0B","Manifold pressure"],["0E","Ignition timing"],
+    ["06","Fuel trims (mixture health)"],["03","Closed-loop fuel control state"],["15","Downstream O2 sensor"],["34","Wideband air-fuel sensor"],["3C","Catalyst temperature"],
+    ["2C","EGR control"],["2E","Evap purge control"],["42","ECU supply voltage"],["1F","Engine run time"],["31","Distance since codes cleared"],["4E","Time since codes cleared"],
+    ["21","Distance with MIL on"],["51","Fuel type"],["5E","Fuel consumption rate"],["5C","Oil temperature"],["2F","Fuel level"],["A6","Odometer"]];
+  const seen = new Set();
+  $("#features").innerHTML = F.filter(([p, n]) => sup.includes(parseInt(p, 16)) && !seen.has(n) && seen.add(n)).map(([p, n]) => `<div>✅ ${n}</div>`).join("") +
+    `<div>✅ Stored / pending / permanent trouble codes</div><div>✅ Readiness monitors</div><div>✅ Freeze frame (when a code is stored)</div><div>✅ VIN, ECU name &amp; calibration IDs</div>` +
+    F.filter(([p, n]) => !sup.includes(parseInt(p, 16)) && !seen.has(n) && (seen.add(n), true)).map(([p, n]) => `<div class="muted">✕ ${n} (not reported by this ECU)</div>`).join("");
+}
+
+// ------------------------------------------------------------------ main render
+function render() {
+  const c = S.connected;
+  $("#connDot").className = "dot " + (c ? "ok" : "bad");
+  $("#connTxt").textContent = c ? `Connected · ${S.port}` : "Disconnected";
+  $("#subtitle").textContent = c ? `2024 King edition · ${S.info?.protocol || ""}` : "2024 King edition";
+  const direct = S.direct && !ENGINE.demo;
+  $("#connectBtn").style.display = direct && !c ? "" : "none";
+  if (ENGINE.demo) { $("#connTxt").textContent = c ? "DEMO data (simulated car)" : "Starting demo…"; }
+  $("#discBanner").style.display = c ? "none" : "";
+  $("#discBanner").innerHTML = direct && !S.has_port
+    ? `<b>Not connected.</b> Pair the <b>OBDII</b> adapter in your phone's Bluetooth settings (PIN 1234), turn the ignition ON, then
+       <button class="btn primary" id="bannerConnect" style="margin-left:6px">🔗 Connect</button> <span class="muted">(Tap ? for help)</span>`
+    : `Not connected to the OBD adapter${direct ? "" : " on " + esc(S.port)}: ${esc(S.error || "…")} Retrying every 5 s. Check that the ignition is ON and the adapter is plugged in.` +
+      (direct ? ` <button class="btn" id="bannerConnect" style="margin-left:6px">Choose adapter again</button>` : "");
+  const B = battery();
+  $("#hdrVolt").textContent = S.voltage != null ? S.voltage.toFixed(1) + " V" + (B.pct != null ? ` · ${B.pct}%` : "") : "–";
+  gRpm(L("0C")); gSpd(L("0D")); gTmp(coolant()); gBat(B.pct);
+  $("#batState").textContent = B.state; $("#batNote").textContent = B.note;
+  MINIS.forEach(m => { const el = document.querySelector(`.mini[data-p="${m[0]}"]`), v = L(m[0]);
+    el.style.display = S.live?.[m[0]] || !c ? "" : "none";
+    el.querySelector(".v span").textContent = fmt(v, m[2] === "%" || m[2] === "V" || m[2] === "g/s" ? 1 : 0);
+    const b = el.querySelector(".bar i"); if (b && v != null) b.style.width = Math.max(0, Math.min(100, (v - m[3]) / (m[4] - m[3]) * 100)) + "%"; });
+  drawChart(); renderDiag(); healthChecks(); renderData(); renderVehicle(); renderSymptoms();
+  renderBattery(); renderM06(); renderIUPR(); renderOdo();
+  const w = S.write_armed;
+  $("#modePill").className = "pill mode" + (w ? " write" : "");
+  $("#modePill").textContent = w ? `⚠ WRITE ARMED · ${S.write_remaining}s` : "🔒 READ-ONLY";
+  $("#armState").textContent = w ? `Armed. Auto-disarms in ${S.write_remaining}s.` : "Currently read-only.";
+  $("#clearBtn").disabled = !w;
+}
+async function tick() {
+  try { S = await ENGINE.state(); render(); }
+  catch (e) { $("#connTxt").textContent = ENGINE?.kind === "server" ? "Laptop server offline" : "Error"; $("#connDot").className = "dot bad"; }
+  setTimeout(tick, 400);
+}
+(async () => {
+  ENGINE = await pickEngine();
+  document.body.dataset.engine = ENGINE.demo ? "demo" : ENGINE.kind;
+  tick();
+})();
+// "Connect" (direct Bluetooth mode): the adapter picker must be opened from a tap
+async function connectAdapter() {
+  if (!OBD.DirectEngine.available()) return warnBox("This browser can't reach the adapter", `<p>Direct Bluetooth needs <b>Chrome on Android (version 137 or newer)</b> or Chrome/Edge on a computer.</p>
+    <p class="muted">iPhones and in-app browsers (WhatsApp, Instagram etc.) can't use classic Bluetooth adapters like this OBDII one. Open this link in Chrome.</p>`);
+  try { await ENGINE.choose(); }
+  catch (e) { if (!/No adapter was selected|cancel/i.test(String(e.message))) warnBox("Couldn't connect", `<p>${esc(e.message || e)}</p>`); }
+}
+$("#connectBtn").onclick = connectAdapter;
+$("#discBanner").onclick = e => { if (e.target.closest("#bannerConnect")) connectAdapter(); };
+$("#helpBtn").onclick = () => warnBox("Using this app on your phone", `
+  <ol style="padding-left:18px;margin:0">
+    <li><b>Pair the adapter once:</b> on Android open Settings → Bluetooth → Pair new device → <b>OBDII</b>. The PIN is usually <b>1234</b> (or 0000).</li>
+    <li>Plug the adapter into the car's OBD port (under the dashboard, driver's side) and turn the <b>ignition ON</b>.</li>
+    <li>Open this page in <b>Chrome</b>, tap <b>Connect</b>, and pick <b>OBDII</b> in the list. Next time it reconnects by itself.</li>
+    <li><b>Install it:</b> Chrome menu ⋮ → <b>Add to Home screen / Install app</b>. It then opens full-screen like an app and works offline.</li>
+  </ol>
+  <p class="muted" style="margin-top:10px">The adapter talks to one device at a time. Disconnect the laptop (or other OBD apps) first. Keep Chrome on screen while reading, because Android may pause Bluetooth for background tabs.</p>
+  <p class="muted">Your battery tests, odometer calibration and write log are stored on this phone only.</p>`);
+
+// ------------------------------------------------------------------ actions
+$("#rescan").onclick = async () => { $("#rescan").disabled = true; await api("/api/refresh", {}); $("#rescan").disabled = false; };
+$("#filter").oninput = renderData;
+$("#csvBtn").onclick = () => {
+  const H = S?.history || [], hdr = "time,rpm,speed_kmh,coolant_c,load_pct,throttle_pct\n";
+  const csv = hdr + H.map(p => [new Date(p.t * 1000).toISOString(), p.rpm, p.speed, p.coolant, p.load, p.throttle].join(",")).join("\n");
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], {type: "text/csv"})); a.download = "creta-obd-history.csv"; a.click();
+};
+const con = $("#conOut");
+const log = t => { con.textContent += t + "\n"; con.scrollTop = con.scrollHeight; };
+async function sendCon(cmd) {
+  if (!cmd) return;
+  const bad = explainBlocked(cmd);
+  if (bad) {
+    log("> " + cmd + "\nNOT SENT: " + bad[0]);
+    return warnBox("Blocked: this isn't a read-only command", `<p><b>${esc(bad[0])}</b></p><div class="warnbox bad"><h4 style="margin:0">What it would do</h4><p style="margin:4px 0 0">${esc(bad[1])}</p></div>
+      <p class="muted">Nothing was sent to the car. This console only allows read services 01, 02, 03, 06, 07, 09 and 0A, plus adapter info commands. The only write this tool supports is clearing codes, from <b>Features &amp; write mode</b> with two confirmations.</p>`);
+  }
+  log("> " + cmd);
+  const r = await api("/api/console", {cmd}); log(r.ok ? r.lines.join("\n") || "(no response)" : "BLOCKED: " + r.error);
+}
+$("#conSend").onclick = () => { sendCon($("#conIn").value.trim()); $("#conIn").value = ""; };
+$("#conIn").onkeydown = e => { if (e.key === "Enter") $("#conSend").click(); };
+$("#conQuick").innerHTML = [["ATRV","Battery"],["010C","RPM"],["0167","Coolant"],["03","Stored codes"],["07","Pending"],["0A","Permanent"],["0902","VIN"],["0100","Supported PIDs"]]
+  .map(([c, n]) => `<button class="btn" data-c="${c}">${n} <span class="pid">${c}</span></button>`).join("");
+$("#conQuick").onclick = e => { const b = e.target.closest("button"); if (b) sendCon(b.dataset.c); };
+
+function confirmBox(title, body, word) {
+  return new Promise(res => {
+    const d = $("#dlg"); $("#dlgT").textContent = title; $("#dlgB").innerHTML = body; $("#dlgW").textContent = word; $("#dlgIn").value = "";
+    d.onclose = () => res(d.returnValue === "ok" ? $("#dlgIn").value.trim() : null); d.showModal();
+  });
+}
+$("#modePill").onclick = () => document.querySelector('#tabs button[data-t="write"]').click();
+$("#armBtn").onclick = async () => {
+  const v = await confirmBox("Arm write mode?", `<p>This allows <b>one</b> write action, clearing trouble codes (OBD Mode 04), for the next 2 minutes. Nothing is sent to the car until you press <b>Clear codes</b> and confirm again.</p>
+    <p class="muted">Here's what clearing would do to your car right now:</p>${impactHtml(clearImpact())}`, "ENABLE WRITE");
+  if (v == null) return;
+  const r = await api("/api/mode", {mode: "write", confirm: v}); if (!r.ok) alert(r.error);
+};
+$("#disarmBtn").onclick = () => api("/api/mode", {mode: "read"});
+$("#clearBtn").onclick = async () => {
+  const x = clearImpact();
+  if (x.blockers.length) return warnBox("Can't clear codes right now", impactHtml(x));
+  const v = await confirmBox("Clear all trouble codes?", `<p>This sends <b>OBD Mode 04</b> to the engine ECU (7E8). <b>It cannot be undone.</b></p>${impactHtml(x)}`, "CLEAR");
+  if (v == null) return;
+  $("#clearOut").textContent = "Sending…";
+  const r = await api("/api/clear-dtc", {confirm: v});
+  $("#clearOut").innerHTML = r.ok ? `<span class="tag ok">Done</span> ECU confirmed codes cleared.` : `<span class="tag bad">Not done</span> ${esc(r.error || (r.lines || []).join(" "))}`;
+  loadLog();
+};
+// ------------------------------------------------------------------ write feature catalogue
+// s: "here" = this tool sends it | "guided" = owner procedure, no tool write | "dealer" = needs Hyundai GDS
+const WF = [
+ {s:"here", i:"🧹", n:"Clear trouble codes & turn off check-engine light", cmd:"OBD Mode 04 → engine ECU (7E8)",
+  what:"Erases all stored and pending emissions trouble codes in the engine computer and switches off the check-engine (MIL) light.",
+  when:["After you have repaired the cause of a code","To confirm a fix: if the code comes back, the fault is still there"],
+  fx:["Freeze-frame snapshot is deleted","All 7 readiness monitors reset to 'Not ready'. They need 1–3 normal drive cycles (mixed city/highway, cold start) to complete","'Distance / time since codes cleared' counters reset to 0","Permanent codes (Mode 0A) are NOT erased. The ECU removes them after it re-verifies the repair","Learned fuel trims may reset on some ECUs. Idle can be slightly uneven for the first few km"],
+  req:["Ignition ON, engine OFF (enforced by the server)","Arm write mode, then confirm by typing CLEAR","Don't do it right before an emissions/PUC test, because monitors will show not-ready"],
+  how:["Arm write mode above → type ENABLE WRITE","Press 'Clear codes…' → type CLEAR","The tool re-scans automatically and logs the action in write_log.txt"]},
+ {s:"guided", i:"🔋", n:"Battery replacement / reconnection reset", cmd:"No tool command, done with the car's controls",
+  what:"After the 12 V battery is disconnected or replaced, several modules lose their learned values. This restores them.",
+  when:["After replacing the battery","After a jump-start from a completely flat battery"],
+  fx:["Idle may hunt for a few minutes until the throttle relearns","Auto-up windows and sunroof stop working until re-initialised","Clock and trip meters reset"],
+  req:["Battery terminals tight. The dashboard battery gauge should read ≥ 80 % engine-off"],
+  how:["Ignition ON (engine off) for 10 s, then start the engine","Let it idle 10 minutes with A/C, lights and fan OFF (throttle/idle relearn)","Windows: run each fully down, then fully up and keep holding the switch up 2–3 s","Sunroof (if fitted): with the roof closed, hold the close button ~10 s until it moves slightly, then follow the owner's manual reset","Check this dashboard: charging voltage should be 13.2–14.7 V and idle should settle at ~650–800 rpm when warm"]},
+ {s:"guided", i:"🌀", n:"Throttle body / idle relearn", cmd:"No tool command, drive procedure",
+  what:"Lets the engine computer re-learn the closed-throttle position and idle airflow after cleaning the throttle body.",
+  when:["After cleaning the throttle body (useful every ~30,000 km)","Idle too high or low, or hunting (see Diagnostics → health checks)"],
+  fx:["None. The ECU just stores new learned values"],
+  req:["Engine cold to warm, all electrical loads off"],
+  how:["Ignition ON 10 s without starting","Start and idle 10 min, A/C off, no throttle","Then drive normally for 10–15 min","Watch 'Engine RPM' (idle) and 'Long-term fuel trim' on this dashboard. Trim should stay within ±8 %"]},
+ {s:"guided", i:"🛠", n:"Service reminder reset", cmd:"Instrument cluster menu",
+  what:"Resets the 'service due' reminder after an oil change or periodic service.",
+  when:["After each service if the workshop didn't reset it"],
+  fx:["Only the reminder counter. Nothing in the engine computer changes"],
+  req:["Ignition ON"],
+  how:["Use the steering-wheel buttons: cluster Settings / User Settings → Service interval","Choose Reset (or set the next interval, typically 10,000 km / 1 year for this engine)","The exact menu names depend on cluster software. See the owner's manual"]},
+ {s:"guided", i:"🛞", n:"TPMS (tyre pressure) after rotation or pressure change", cmd:"Automatic re-learn by driving",
+  what:"The Creta's direct TPMS sensors re-associate with their positions and clear the low-pressure warning.",
+  when:["After inflating tyres","After a tyre rotation or puncture repair"],
+  fx:["None"],
+  req:["Inflate to the door-pillar sticker pressures with tyres cold"],
+  how:["Drive above ~25 km/h for 10–20 minutes. The warning clears by itself","If it stays on or the warning lamp blinks, a sensor may be faulty (dealer check)","TPMS isn't readable over generic OBD, so this dashboard can't show tyre pressures"]},
+ {s:"dealer", i:"💾", n:"ECU software update / reflash", cmd:"UDS programming session (blocked here)",
+  what:"Installs updated engine or transmission software published by Hyundai (fixes, drivability updates, recalls).",
+  why:"A wrong file or an interrupted write can brick the ECU. It needs Hyundai's signed files and security access. Generic adapters must never do this."},
+ {s:"dealer", i:"⚙", n:"Transmission (IVT/DCT/AT) adaptive values reset", cmd:"Hyundai-specific TCM routine (blocked here)",
+  what:"Clears and re-learns shift and clutch adaptation. Fixes harsh or jerky shifts after a repair or fluid change.",
+  why:"The TCM doesn't answer generic OBD on this car (only the engine ECU 7E8 responds). It needs GDS routine IDs."},
+ {s:"dealer", i:"🧭", n:"Steering angle sensor calibration", cmd:"Chassis module routine (blocked here)",
+  what:"Zeroes the steering angle sensor used by ESC, lane-keep and the parking cameras.",
+  why:"Needed after an alignment or steering work. A wrong calibration affects ESC and ADAS behaviour, so it's a dealer job."},
+ {s:"dealer", i:"📷", n:"ADAS camera / radar calibration", cmd:"Dealer calibration with targets",
+  what:"Aligns the front camera and radar used by lane-keep assist, forward-collision avoidance and smart cruise.",
+  why:"Requires physical targets and GDS. Needed after a windscreen replacement or front-end repair."},
+ {s:"dealer", i:"🅿", n:"Electronic parking brake service mode", cmd:"Brake module routine (blocked here)",
+  what:"Retracts the rear EPB motors so rear pads can be replaced.",
+  why:"Forcing the brake actuators from a generic tool is a safety risk. Workshops use GDS or a brake-capable scan tool."},
+ {s:"dealer", i:"🔑", n:"Key / smart-key programming", cmd:"Immobiliser (blocked here)",
+  what:"Adds or removes keys from the immobiliser.",
+  why:"Security function protected by Hyundai PIN and online authorisation."},
+ {s:"dealer", i:"💉", n:"Injector coding / ABS bleeding / module coding", cmd:"Various UDS routines (blocked here)",
+  what:"Configures replacement parts (injectors, ABS unit, body modules) so the car recognises them.",
+  why:"Part-specific data and security access needed. Only done when a part is replaced."},
+];
+// Risk level + warnings for every write / service feature
+const RISK_INFO = {
+ "Clear trouble codes & turn off check-engine light": ["med", [
+   "Hides the evidence: a mechanic loses the code and freeze-frame snapshot needed to diagnose the fault",
+   "Your car will FAIL a PUC / emissions inspection until monitors are ready again (1–3 drive cycles, often 50–200 km)",
+   "If the fault is still present, the light comes back, sometimes within minutes",
+   "Never clear a FLASHING check-engine light (active misfire). Stop driving hard and get it checked, because it can destroy the catalytic converter",
+   "Clearing during an open warranty claim can complicate the claim. Photograph the codes first"]],
+ "Battery replacement / reconnection reset": ["low", [
+   "Wrong polarity when reconnecting can blow fuses or damage ECUs. Connect + first, − last",
+   "Don't leave the ignition ON for long periods with a weak battery during relearn",
+   "If the new battery is a different size or type (AGM vs flooded), use Hyundai's spec for the Creta"]],
+ "Throttle body / idle relearn": ["low", [
+   "Don't spray cleaner into the throttle body with the ignition ON. The motorised throttle blade can move and pinch fingers",
+   "Avoid spraying the throttle position sensor connector"]],
+ "Service reminder reset": ["low", ["Only reset after the service is actually done, or you lose your reminder"]],
+ "TPMS (tyre pressure) after rotation or pressure change": ["low", ["A blinking TPMS lamp means a sensor fault, not low pressure. Don't ignore it"]],
+ "ECU software update / reflash": ["high", ["Interrupted or wrong flash can permanently disable the engine computer (car won't start)","Voids warranty if done outside Hyundai"]],
+ "Transmission (IVT/DCT/AT) adaptive values reset": ["high", ["Shifts can be harsh until re-learned. A wrong routine can put the TCM into limp mode"]],
+ "Steering angle sensor calibration": ["high", ["A wrong zero point makes ESC intervene incorrectly and disturbs lane-keep assist"]],
+ "ADAS camera / radar calibration": ["high", ["Mis-calibration can make collision-avoidance brake late or falsely"]],
+ "Electronic parking brake service mode": ["high", ["Actuating rear brake motors with someone working on them can cause injury"]],
+ "Key / smart-key programming": ["high", ["A failed session can erase existing keys. The car may not start"]],
+ "Injector coding / ABS bleeding / module coding": ["high", ["Wrong coding causes rough running, ABS faults or warning lights"]],
+};
+WF.forEach(f => { const r = RISK_INFO[f.n]; if (r) { f.risk = r[0]; f.warn = r[1]; } });
+const READ_FEATURES = [
+ {i:"📈", n:"Live engine data (all supported sensors)", go:"data", what:"Continuously polls every parameter the engine ECU supports (39 on this car): RPM, speed, temperatures, load, throttle, airflow, fuel trims, O2 sensors, catalyst temperature, EGR, purge, voltages, run time.", how:["Dashboard tab for gauges, All live data tab for everything","Export history as CSV from the All live data tab"]},
+ {i:"🎛", n:"Rev counter, speedometer, coolant & battery gauges", go:"dash", what:"Animated gauges with warning zones (rev limit 6,000–6,500 rpm, coolant above 105 °C, battery under 70 %), plus a 2-minute trend chart."},
+ {i:"🚨", n:"Trouble codes: stored, pending & permanent", go:"diag", what:"Reads Mode 03 (confirmed), 07 (pending: seen once, not yet confirmed) and 0A (permanent: only the ECU can clear these) every 20 s, with a description, severity, likely causes and repair steps for each code."},
+ {i:"📸", n:"Freeze frame", go:"diag", what:"When a code is stored, shows the snapshot of engine conditions (RPM, speed, load, temperatures, fuel trims) at the moment the fault was detected."},
+ {i:"✅", n:"Readiness monitors", go:"diag", what:"Shows whether each emissions self-test (misfire, fuel system, catalyst, O2 sensors, heaters, EGR/VVT) has completed. All ready means PUC-test-ready."},
+ {i:"🧪", n:"On-board monitor test results (Mode 06)", go:"diag", what:"The ECU's own pass/fail measurements with limits. Spots components drifting toward failure before a code appears, e.g. per-cylinder misfire counts or catalyst efficiency."},
+ {i:"📊", n:"Usage & monitor counters", go:"diag", what:"Ignition-cycle count, plus how often each monitor ran versus how often it had the chance to run (in-use performance ratios)."},
+ {i:"🔋", n:"Battery charge % and health test", go:"diag", what:"Charge estimated from resting voltage, charging-system check while running, and a cranking test that measures the voltage dip on start-up, the best DIY indicator of battery health."},
+ {i:"🩺", n:"Live health checks & symptom checker", go:"diag", what:"Automatic checks (battery, charging, coolant, fuel trims, idle, intake temperature, catalyst) plus a symptom picker that matches your complaint to live readings and likely causes."},
+ {i:"🪪", n:"Vehicle identity", go:"vehicle", what:"VIN, engine ECU name, calibration (software) ID, calibration verification number, OBD standard, fuel type, and which ECUs answer OBD."},
+ {i:"🛣", n:"ECU distance & odometer calibration", go:"vehicle", what:"Explains the ECU's distance counter and lets you calibrate it against your cluster odometer for an estimated live odometer."},
+ {i:"⌨", n:"Read-only command console", go:"console", what:"Send raw OBD read requests. Any write / control / programming service is blocked, and the dashboard explains what it would have done."},
+];
+READ_FEATURES.forEach(f => { f.s = "read"; f.risk = "none"; f.cmd = "Read-only"; });
+WF.unshift(...READ_FEATURES);
+const WFS = {read:["info","Read-only"], here:["ok","Write: available here"], guided:["warn","Guided (DIY)"], dealer:["mute","Dealer only"]};
+const RISKS = {none:["ok","No risk"], low:["mute","Low risk"], med:["warn","Medium risk"], high:["bad","High risk"]};
+let wfSel = "all";
+function renderWF() {
+  $("#wfFilter").innerHTML = [["all","All"],["read","Read-only"],["here","Write: available here"],["guided","Guided (DIY)"],["dealer","Dealer only"]]
+    .map(([k, n]) => `<button class="chipbtn${wfSel === k ? " on" : ""}" data-k="${k}">${n} (${k === "all" ? WF.length : WF.filter(f => f.s === k).length})</button>`).join("");
+  const list = (t, a, ord) => a && a.length ? `<div><h4>${t}</h4><${ord ? "ol" : "ul"}>${a.map(x => `<li>${esc(x)}</li>`).join("")}</${ord ? "ol" : "ul"}></div>` : "";
+  $("#wfeat").innerHTML = WF.filter(f => wfSel === "all" || f.s === wfSel).map((f, i) => `
+    <details class="wf"${f.s === "here" ? " open" : ""}><summary><span style="font-size:20px">${f.i}</span><span class="t">${f.n}</span>
+      <span class="tag ${WFS[f.s][0]}">${WFS[f.s][1]}</span><span class="tag ${RISKS[f.risk || "low"][0]}">${RISKS[f.risk || "low"][1]}</span><span class="pid">${esc(f.cmd)}</span></summary>
+      <div class="body">
+        <div><h4>What it does</h4><p>${esc(f.what)}</p>${f.go ? `<p style="margin-top:8px"><button class="btn" data-go="${f.go}">Open →</button></p>` : ""}</div>
+        ${f.warn ? `<div class="warnbox ${f.risk === "high" ? "bad" : ""}" style="grid-column:1/-1"><h4>⚠ What can go wrong</h4><ul>${f.warn.map(w => `<li>${esc(w)}</li>`).join("")}</ul></div>` : ""}
+        ${list("When to use it", f.when)}${list("Side effects", f.fx)}${list("Requirements", f.req)}${list("How", f.how, true)}
+        ${f.why ? `<div><h4>Why not in this tool</h4><p>${esc(f.why)}</p></div>` : ""}
+        ${f.s === "here" ? `<div><h4>Status now</h4><p>${S?.write_armed ? '<span class="tag bad">Write armed</span> Use "Clear codes…" above.' : '<span class="tag ok">Locked</span> Arm write mode above to enable.'}</p></div>` : ""}
+      </div></details>`).join("");
+}
+$("#wfFilter").onclick = e => { const b = e.target.closest("button"); if (b) { wfSel = b.dataset.k; renderWF(); } };
+$("#wfeat").onclick = e => { const b = e.target.closest("button[data-go]"); if (b) document.querySelector(`#tabs button[data-t="${b.dataset.go}"]`).click(); };
+
+// ------------------------------------------------------------------ battery health
+function renderBattery() {
+  const tests = S.bat_tests || [], last = tests[tests.length - 1], vh = S.vhist || [];
+  const rest = vh.filter(x => !x[2]).map(x => x[1]), run = vh.filter(x => x[2]).map(x => x[1]);
+  const lastRestV = rest.length ? rest[rest.length - 1] : null;
+  const runAvg = run.length ? run.slice(-20).reduce((a, b) => a + b, 0) / Math.min(20, run.length) : null;
+  const KM = {"Charge (state of charge)":"SOC","Health (cranking test)":"SOH","Charging system":"CHG","Last tested":"LASTT"};
+  const stat = (k, v, s, cls) => `<div class="stat" data-info="${KM[k]}"><div class="k">${k}</div><div class="v" ${cls ? `style="color:var(--${cls})"` : ""}>${v}</div><div class="s">${s}</div></div>`;
+  const vc = last?.verdict === "Good" ? "ok" : last?.verdict === "Fair" ? "warn" : last?.score != null ? "bad" : null;
+  $("#batStats").innerHTML =
+    stat("Charge (state of charge)", lastRestV != null ? Math.round(socFromV(lastRestV)) + "%" : "–", lastRestV != null ? `resting ${lastRestV.toFixed(2)} V` : "needs engine off") +
+    stat("Health (cranking test)", last?.score != null ? last.verdict : "Not tested", last?.score != null ? `score ${last.score}/100 · dip to ${last.crank_min} V` : "run the test below", vc) +
+    stat("Charging system", runAvg != null ? runAvg.toFixed(2) + " V" : "–", runAvg == null ? "start engine to check" : runAvg >= 13.2 ? "charging normally" : runAvg >= 12.8 ? "smart alternator (light charge)" : "NOT charging", runAvg == null ? null : runAvg >= 12.8 ? "ok" : "bad") +
+    stat("Last tested", last ? new Date(last.t * 1000).toLocaleDateString() : "never", last ? new Date(last.t * 1000).toLocaleTimeString() : "");
+  $("#batHealthMini").innerHTML = last?.score != null ? `Health: <b style="color:var(--${vc})">${last.verdict}</b> (${last.score}/100)` : `Health: <a href="#" id="goBat" style="color:var(--accent)">run cranking test</a>`;
+  const gb = $("#goBat"); if (gb) gb.onclick = e => { e.preventDefault(); document.querySelector('#tabs button[data-t="diag"]').click(); };
+  // live test
+  const L2 = S.bat_live, busy = S.bat_busy || (L2 && ["queued","rest","crank","after"].includes(L2.phase));
+  $("#batTestBtn").disabled = busy || !S.connected;
+  if (L2 && L2.phase) {
+    const s = L2.samples || [], vs = s.map(x => x[1]);
+    let spark = "";
+    if (s.length > 1) { const lo = Math.min(...vs, 9), hi = Math.max(...vs, 14.5), tmax = Math.max(30, s[s.length - 1][0]);
+      spark = `<svg viewBox="0 0 400 80" style="width:100%;height:80px;margin-top:6px"><polyline fill="none" stroke="var(--accent)" stroke-width="2" points="${s.map(p => `${p[0] / tmax * 400},${78 - (p[1] - lo) / (hi - lo) * 74}`).join(" ")}"/>
+        <text x="4" y="12" fill="var(--muted)" font-size="10">${hi.toFixed(1)} V</text><text x="4" y="78" fill="var(--muted)" font-size="10">${lo.toFixed(1)} V</text></svg>`; }
+    const res = L2.phase === "done" && last ? `<div style="margin-top:8px"><b>Result: ${last.verdict}</b>${last.score != null ? ` · score ${last.score}/100` : ""} · resting ${last.rest} V (${last.rest_soc}%) · lowest ${last.crank_min} V · after start ${last.charging} V
+      ${(last.notes || []).map(n => `<div class="muted">• ${esc(n)}</div>`).join("")}
+      <div class="muted" style="font-size:12px;margin-top:4px">Guide: dip ≥ 10.5 V good · 10.0–10.5 fair · 9.6–10.0 weak · below 9.6 V replace. Cheap adapters read ±0.1–0.2 V, so compare tests over time.</div></div>` : "";
+    $("#batLive").innerHTML = `<div class="phase ${L2.phase === "crank" ? "go" : ""}">${esc(L2.msg || "")}</div>${spark}${res}`;
+  }
+  // trend
+  if (vh.length > 1) { const t0 = vh[0][0], t1 = vh[vh.length - 1][0] || t0 + 1, lo = 11, hi = 15;
+    const pts = vh.map(p => `${(p[0] - t0) / Math.max(1, t1 - t0) * 400},${88 - (Math.min(hi, Math.max(lo, p[1])) - lo) / (hi - lo) * 84}`).join(" ");
+    const y = v => 88 - (v - lo) / (hi - lo) * 84;
+    $("#vTrend").innerHTML = `<line x1="0" x2="400" y1="${y(12.4)}" y2="${y(12.4)}" stroke="var(--warn)" stroke-dasharray="3 3" opacity=".6"/>
+      <line x1="0" x2="400" y1="${y(13.2)}" y2="${y(13.2)}" stroke="var(--ok)" stroke-dasharray="3 3" opacity=".6"/>
+      <text x="396" y="${y(12.4) - 2}" fill="var(--muted)" font-size="9" text-anchor="end">12.4 V rest min</text>
+      <text x="396" y="${y(13.2) - 2}" fill="var(--muted)" font-size="9" text-anchor="end">13.2 V charging</text>
+      <polyline fill="none" stroke="var(--accent)" stroke-width="2" points="${pts}"/>`; }
+  $("#batHist").innerHTML = tests.length ? "<tr><th>Date</th><th>Rest</th><th>Dip</th><th>Result</th></tr>" + tests.slice().reverse().slice(0, 6).map(t =>
+    `<tr><td>${new Date(t.t * 1000).toLocaleString([], {dateStyle: "short", timeStyle: "short"})}</td><td class="num">${t.rest ?? "–"} V</td><td class="num">${t.crank_min ?? "–"} V</td><td>${esc(t.verdict)}</td></tr>`).join("")
+    : `<tr><td class="muted">No tests yet.</td></tr>`;
+}
+$("#batTestBtn").onclick = async () => {
+  if (L("0C") > 300) return warnBox("Switch the engine off first", "<p>The cranking test needs the engine OFF (ignition ON) so it can measure the resting voltage and then the dip when you start. Wait a minute after switching off.</p>");
+  const r = await api("/api/battery-test", {}); if (!r.ok) alert(r.error);
+};
+
+// ------------------------------------------------------------------ Mode 06 + IUPR
+function renderM06() {
+  const m = S.mode06;
+  $("#m06Btn").disabled = S.mode06_busy || !S.connected;
+  $("#m06Btn").textContent = S.mode06_busy ? "Reading…" : m ? "↻ Read again" : "▶ Read test results";
+  if (!m) return;
+  if (!m.tests.length) { $("#m06").innerHTML = `<p class="muted">The ECU returned no Mode 06 results (supported monitors: ${m.mids.join(", ") || "none"}).</p>`; return; }
+  const fails = m.tests.filter(t => !t.pass).length, by = {};
+  m.tests.forEach(t => (by[t.monitor] ||= []).push(t));
+  // distance to the nearest *real* limit, relative to that limit's size
+  const margin = t => { const d = [];
+    if (!t.lo_open) d.push(Math.abs(t.value - t.min) / Math.max(Math.abs(t.min), 1e-6));
+    if (!t.hi_open) d.push(Math.abs(t.max - t.value) / Math.max(Math.abs(t.max), 1e-6));
+    return d.length ? Math.min(...d) : null; };
+  $("#m06").innerHTML = `<p>${fails ? `<span class="tag bad">${fails} failing</span>` : `<span class="tag ok">All ${m.tests.length} tests pass</span>`}
+    <span class="muted"> · read ${new Date(m.t * 1000).toLocaleTimeString()}. "Near limit" means within 10 % of a limit. For Hyundai "Manufacturer test" rows, some values sit near one limit by design. Watch whether they move between readings instead of reacting to a single result.</span></p>` +
+    Object.entries(by).map(([mon, ts]) => `<div class="dtc"><b>${esc(mon)}</b><table style="margin-top:6px"><tr><th>Test</th><th class="num">Value</th><th class="num">Min</th><th class="num">Max</th><th>Result</th></tr>` +
+      ts.map(t => { const mg = margin(t), near = t.pass && mg != null && mg < 0.1;
+        return `<tr><td>${esc(t.test)} <span class="pid">${t.tid}</span></td><td class="num">${t.value} ${esc(t.unit)}</td><td class="num">${t.min}</td><td class="num">${t.max}</td>
+        <td><span class="tag ${!t.pass ? "bad" : near ? "warn" : "ok"}">${!t.pass ? "FAIL" : near ? "Pass, near limit" : "Pass"}</span></td></tr>`; }).join("") + "</table></div>").join("");
+}
+$("#m06Btn").onclick = () => api("/api/mode06", {});
+function renderIUPR() {
+  const u = S.iupr; if (!u) return;
+  const g = n => u.find(x => x.name === n)?.value;
+  const pairs = [["Catalyst B1","Catalyst B1"],["O2 sensor B1","O2 sensor B1"],["EGR/VVT","EGR/VVT"],["EVAP","EVAP"],["Rear O2 B1","Rear O2 B1"]];
+  $("#iupr").innerHTML = `<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
+    <div class="stat" data-info="IGN"><div class="k">Ignition cycles (ECU count)</div><div class="v">${g("Ignition cycles") ?? "–"}</div><div class="s">engine starts / key-ons counted</div></div>
+    <div class="stat" data-info="OBDC"><div class="k">Drives meeting OBD conditions</div><div class="v">${g("OBD monitoring conditions met") ?? "–"}</div><div class="s">trips long enough for monitoring</div></div></div>
+    <table style="margin-top:10px"><tr><th>Monitor</th><th class="num">Ran</th><th class="num">Opportunities</th><th class="num">Ratio</th></tr>` +
+    pairs.map(([n]) => { const c = g(n + " completions"), d = g(n + " conditions"); if (c == null || d == null || (!c && !d)) return "";
+      const r = d ? c / d : 0; return `<tr><td>${n}</td><td class="num">${c}</td><td class="num">${d}</td><td class="num"><span class="tag ${r >= 0.336 ? "ok" : "warn"}">${r.toFixed(2)}</span></td></tr>`; }).join("") +
+    `</table><p class="muted" style="font-size:12px">A ratio of 0.336 or more means the monitor runs often enough (regulatory minimum). A low ratio usually just means lots of very short trips.</p>`;
+}
+
+// ------------------------------------------------------------------ odometer
+function ecuKm() { return L("31"); }
+function estOdo() {
+  const st = S.settings || {}, e = ecuKm();
+  if (!st.odo_ref_km || !st.ecu_ref_km || e == null) return null;
+  const ratio = st.odo_ref_km / st.ecu_ref_km;
+  return {odo: Math.round(st.odo_ref_km + (e - st.ecu_ref_km) * ratio), ratio};
+}
+function renderOdo() {
+  const e = ecuKm(), st = S.settings || {}, est = estOdo();
+  const diff = st.odo_ref_km && st.ecu_ref_km ? ((st.ecu_ref_km / st.odo_ref_km - 1) * 100) : null;
+  $("#odoInfo").innerHTML = `
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px">
+      <div class="stat" data-info="31"><div class="k">ECU distance counter (PID 0x31)</div><div class="v">${e != null ? e.toLocaleString() + " km" : "–"}</div><div class="s">distance since codes were last cleared</div></div>
+      <div class="stat" data-info="ODO"><div class="k">Odometer (estimated)</div><div class="v">${est ? est.odo.toLocaleString() + " km" : "–"}</div><div class="s">${est ? `calibrated at ${st.odo_ref_km.toLocaleString()} km` : "enter your cluster reading below"}</div></div>
+      <div class="stat" data-info="DIFF"><div class="k">Difference</div><div class="v">${diff != null ? (diff > 0 ? "+" : "") + diff.toFixed(1) + "%" : "–"}</div><div class="s">ECU vs your cluster</div></div>
+    </div>
+    <div class="muted" style="margin-top:10px;font-size:13px">
+      <b style="color:var(--text)">Why this number differs from your cluster odometer:</b> the ECU distance counter is <b>not the odometer</b>.
+      Your Creta's engine computer doesn't share the real odometer over generic OBD (PID A6 isn't supported). The value shown is a separate ECU counter,
+      "distance travelled since trouble codes were cleared" (PID 0x31). It differs from the cluster because:
+      <ul style="margin:6px 0 0 18px;padding:0">
+        <li><b>It counts from a different start point.</b> It began when the ECU's codes were last cleared, which may be at the factory, during pre-delivery checks or at a service. Distance driven at the plant, on test rigs or in transit can be included.</li>
+        <li><b>It integrates the ECU's own speed signal.</b> The cluster odometer uses its own calibrated distance pulses. A 2–3 % difference is typical.${diff != null ? ` Yours is ${diff > 0 ? "+" : ""}${diff.toFixed(1)} %.` : ""}</li>
+        <li>It resets to 0 whenever codes are cleared (Mode 04) and tops out at 65,535 km.</li>
+      </ul>
+      Enter your cluster odometer and press Calibrate. The dashboard then shows a live estimated odometer that tracks your cluster.
+    </div>`;
+}
+$("#odoSave").onclick = async () => {
+  const v = parseInt($("#odoIn").value.replace(/[^\d]/g, ""), 10), e = ecuKm();
+  if (!v || v < 1) return alert("Enter the odometer reading from your instrument cluster in km.");
+  if (e == null) return alert("The ECU distance counter hasn't been read yet. Wait a few seconds and try again.");
+  await api("/api/settings", {odo_ref_km: v, ecu_ref_km: e, odo_set_at: Date.now() / 1000}); $("#odoIn").value = "";
+};
+$("#odoClear").onclick = () => api("/api/settings", {odo_ref_km: null, ecu_ref_km: null, odo_set_at: null});
+
+// ------------------------------------------------------------------ warnings
+function warnBox(title, html) { $("#wdT").textContent = title; $("#wdB").innerHTML = html; $("#warnDlg").showModal(); }
+const SERVICE_INFO = {
+  "04":["Clear emissions trouble codes (OBD Mode 04)","Erases codes, freeze frame and readiness monitors in the engine ECU. Use the guarded 'Clear codes' button in Features & write mode instead."],
+  "05":["Oxygen sensor monitoring (non-CAN)","Not used on CAN cars."],
+  "08":["Control on-board system (OBD Mode 08)","Commands the ECU to run actuator tests, e.g. sealing the EVAP system. Can change engine and actuator behaviour."],
+  "10":["Diagnostic session control (UDS 0x10)","Switches the ECU into extended or programming session, which unlocks write and flashing functions."],
+  "11":["ECU reset (UDS 0x11)","Reboots the engine computer. If the engine is running it will STALL. Can drop learned values."],
+  "14":["Clear diagnostic information (UDS 0x14)","Wipes all DTCs and stored data in the targeted module, including non-emissions modules."],
+  "19":["Read DTC information (UDS 0x19)","Read-only in itself, but needs Hyundai-specific header setup, so it's not supported here."],
+  "22":["Read data by identifier (UDS 0x22)","Reads manufacturer data. Not dangerous, but needs Hyundai's private IDs and module addressing."],
+  "23":["Read memory by address (UDS 0x23)","Raw ECU memory read. Not supported."],
+  "27":["Security access (UDS 0x27)","Unlocks protected ECU functions with a seed/key. Repeated wrong keys can lock the ECU out for a period."],
+  "28":["Communication control (UDS 0x28)","Turns off CAN messaging between modules. Dashboard warnings and limp mode can follow."],
+  "2E":["Write data by identifier (UDS 0x2E)","Writes configuration or coding values into a module. Wrong values can disable features or cause faults."],
+  "2F":["Input/output control (UDS 0x2F)","Directly drives actuators (fans, injectors, throttle, brakes). Can be physically dangerous."],
+  "31":["Routine control (UDS 0x31)","Starts ECU routines such as relearns, erasing flash or calibrations."],
+  "34":["Request download (UDS 0x34)","Starts ECU reprogramming. An interruption can brick the ECU."],
+  "35":["Request upload (UDS 0x35)","ECU memory dump. Not supported."],
+  "36":["Transfer data (UDS 0x36)","Part of ECU flashing."],
+  "37":["Request transfer exit (UDS 0x37)","Part of ECU flashing."],
+  "3B":["Write data by local ID (KWP 0x3B)","Older-style coding write."],
+  "3E":["Tester present (UDS 0x3E)","Keeps a non-default session alive."],
+  "85":["Control DTC setting (UDS 0x85)","Stops modules recording faults. Real faults would go unrecorded."],
+};
+const AT_INFO = {
+  ATMA:"Monitor all CAN traffic. It floods the adapter and blocks normal polling.", ATSH:"Sets the request header, i.e. which module to talk to. It's the first step to addressing body/ABS/airbag modules with manufacturer commands.",
+  ATPP:"Changes the adapter's programmable parameters, stored permanently in the adapter's memory. It can make the adapter stop working with this car.",
+  ATCRA:"CAN receive filter.", ATCAF:"Turns CAN auto-formatting on or off.", ATSP:"Forces a specific protocol. A wrong one breaks communication.", ATBRD:"Changes the adapter's baud rate. The Bluetooth link can be lost.",
+  ATWM:"Sets the wake-up message.", ATSW:"Sets the wake-up interval.", ATD:"Resets the adapter to defaults.", ATLP:"Puts the adapter to sleep.", ATCS:"Shows CAN status.",
+};
+const READ_SERVICES = ["01","02","03","06","07","09","0A"];
+function explainBlocked(cmd) {
+  const c = cmd.toUpperCase().replace(/\s+/g, "");
+  const SAFE_AT = ["ATZ","ATWS","ATE0","ATL0","ATS0","ATS1","ATH0","ATH1","ATSP0","ATI","AT@1","ATRV","ATDP","ATDPN","ATAT1","ATAT2"];
+  if (c.startsWith("AT")) {
+    if (SAFE_AT.includes(c) || /^ATST[0-9A-F]{2}$/.test(c)) return null;
+    const k = Object.keys(AT_INFO).sort((a, b) => b.length - a.length).find(k => c.startsWith(k));
+    return ["Adapter command " + c, k ? AT_INFO[k] : "This adapter configuration command isn't on the read-only allow-list. It could change how the adapter talks to the car."];
+  }
+  if (!/^[0-9A-F]{2,14}$/.test(c)) return ["Not a valid request", "Use hex OBD requests like 010C, or info commands like ATRV."];
+  const s = c.slice(0, 2); if (READ_SERVICES.includes(s)) return null;
+  return SERVICE_INFO[s] ? ["Service 0x" + s + ": " + SERVICE_INFO[s][0], SERVICE_INFO[s][1]] : ["Service 0x" + s, "Not a standard OBD read service. Unknown or manufacturer-specific services could change ECU state."];
+}
+
+// impact of clearing codes, computed from the car's current state
+function clearImpact() {
+  const d = S.dtc || {}, codes = [...(d.stored || []), ...(d.pending || [])], perm = d.permanent || [];
+  const mons = S.readiness?.monitors || [], ready = mons.filter(m => m.ready).length, rpm = L("0C"), v = S.voltage;
+  const blockers = [], warns = [], info = [];
+  if (rpm > 50) blockers.push(`Engine is running (${Math.round(rpm)} rpm). Switch it off and leave the ignition ON. The server will refuse otherwise.`);
+  if (v != null && v < 11.8) blockers.push(`Battery is low (${v} V). The ECU may drop communication mid-command. Charge the battery first.`);
+  if (!codes.length) warns.push("There are NO stored or pending codes. Clearing would only reset your readiness monitors and counters. Not recommended.");
+  else info.push(`Erases: <b>${codes.join(", ")}</b>`);
+  if (codes.some(c => /^P03\d\d$/.test(c))) warns.push("A misfire code is present. If the check-engine light was FLASHING, don't clear. Fix the misfire first, because driving with it damages the catalytic converter.");
+  if (codes.some(c => dtcInfo(c).sev === "high")) warns.push("At least one high-severity code. Make sure it's repaired, or note it down before clearing.");
+  if (S.freeze) warns.push(`The freeze-frame snapshot for ${S.freeze.dtc} will be lost. Take a screenshot of the Diagnostics tab first.`);
+  warns.push(`${ready} of ${mons.length} readiness monitors are currently ready and will ALL reset to "not ready". PUC/emissions test will fail until they complete again (1–3 drive cycles).`);
+  if (L("31") != null) info.push(`"Distance since codes cleared" (${L("31")} km), warm-up counter (${L("30") ?? "–"}) and time counters reset to 0.`);
+  if (perm.length) info.push(`Permanent codes ${perm.join(", ")} will NOT be erased. The ECU clears them itself after verifying the repair.`);
+  return {blockers, warns, info};
+}
+function impactHtml(x) {
+  return (x.blockers.length ? `<div class="warnbox bad"><h4 style="margin:0">⛔ Blocked right now</h4><ul>${x.blockers.map(b => `<li>${b}</li>`).join("")}</ul></div>` : "") +
+    `<div class="warnbox" style="margin-top:8px"><h4 style="margin:0">⚠ What this will do</h4><ul>${x.warns.map(b => `<li>${b}</li>`).join("")}</ul></div>` +
+    (x.info.length ? `<ul class="muted" style="margin-top:8px">${x.info.map(b => `<li>${b}</li>`).join("")}</ul>` : "");
+}
+renderWF();
+let lastArmed = null;
+setInterval(() => { if (S && S.write_armed !== lastArmed) { lastArmed = S.write_armed; renderWF(); } }, 500);
+
+async function loadLog() { const t = await ENGINE.writelog(); $("#wlog").textContent = t || "No write actions have been performed."; }
+// offline support when hosted over https (GitHub Pages)
+if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>
