@@ -126,7 +126,9 @@ class MockPort {
       while ((i = self.buf.indexOf("\r")) >= 0) {
         const cmd = self.buf.slice(0, i); self.buf = self.buf.slice(i + 1);
         const lines = self.sim.respond(cmd);
-        setTimeout(() => { try { ctrl.enqueue(enc.encode(lines.join("\r") + "\r\r>")); } catch (e) {} }, 15 + Math.random() * 25);
+        // window.__demoLag (ms) and window.__demoDrop (0–1) simulate walking away from the car
+        if (Math.random() < (window.__demoDrop || 0)) continue;
+        setTimeout(() => { try { ctrl.enqueue(enc.encode(lines.join("\r") + "\r\r>")); } catch (e) {} }, 15 + Math.random() * 25 + (window.__demoLag || 0));
       }
     }});
   }

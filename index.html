@@ -79,6 +79,15 @@ header{padding:10px 16px;border-bottom:1px solid var(--line);background:var(--pa
 .btn.icon{width:36px;height:36px;padding:0;display:grid;place-items:center;flex:none}
 #connectBtn{flex:none}
 .kitt{display:none}
+.bars{display:inline-flex;align-items:flex-end;gap:2px;height:12px;margin-right:2px}
+.bars i{width:3px;background:var(--line);border-radius:1px}
+.bars i:nth-child(1){height:4px}.bars i:nth-child(2){height:7px}.bars i:nth-child(3){height:10px}.bars i:nth-child(4){height:13px}
+.bars i.on{background:var(--lc,var(--ok))}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%) translateY(140%);z-index:60;max-width:calc(100% - 32px);
+  background:var(--panel);border:1px solid var(--bad);color:var(--text);border-radius:12px;padding:10px 14px;box-shadow:0 10px 30px rgba(0,0,0,.45);
+  transition:transform .3s;font-size:13.5px}
+#toast.show{transform:translateX(-50%) translateY(0)}
+#toast.ok{border-color:var(--ok)}
 header h1{font-size:17px;margin:0;font-weight:650;letter-spacing:.2px}
 header .sub{color:var(--muted);font-size:12px}
 .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);font-size:12px;white-space:nowrap}
@@ -211,6 +220,7 @@ dialog::backdrop{background:rgba(0,0,0,.6)}
   </div>
   <div class="hdr-pills">
     <span class="pill"><span class="dot" id="connDot"></span><span id="connTxt">Connecting</span></span>
+    <span class="pill" id="hdrLink" data-info="LINK" style="display:none"><span class="bars" id="linkBars"><i></i><i></i><i></i><i></i></span><span id="linkTxt">–</span></span>
     <span class="pill">🔋 <span id="hdrVolt">–</span></span>
     <span class="pill" id="hdrMil">MIL –</span>
     <span class="pill mode" id="modePill" title="Click to change mode">🔒 READ-ONLY</span>
@@ -374,8 +384,10 @@ dialog::backdrop{background:rgba(0,0,0,.6)}
 </main>
 
 <div id="tip"></div>
-<script src="obd-engine.js"></script>
-<script src="obd-demo.js"></script>
+<div id="toast" role="status" aria-live="polite"></div>
+<!-- ?v= busts browser caches when the app is updated -->
+<script src="obd-engine.js?v=6"></script>
+<script src="obd-demo.js?v=6"></script>
 <dialog id="infoDlg"><form method="dialog">
   <div id="infoBody"></div>
   <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="btn primary" value="ok">Close</button></div>
@@ -510,6 +522,7 @@ const INFO = {
  "55":["Secondary O2 short-term trim","Fine mixture correction based on the downstream (after-catalyst) sensor.","Near 0 %.","Persistently large means the catalyst or rear sensor is drifting (P2096/P2097)."],
  "56":["Secondary O2 long-term trim","Learned correction from the downstream O2 sensor.","Within about ±3 %.",""],
  "01":["Monitor status since codes cleared","Check-engine light state, number of stored codes, and which emissions self-tests are supported or complete.","MIL OFF, 0 codes.",""],
+ "LINK":["Bluetooth link to the adapter","How well your phone is talking to the OBD adapter, measured from the connection itself: what share of requests the adapter answers, and how quickly. Android doesn't give apps the raw signal strength of a connected classic-Bluetooth device, and signal-to-metres guesses are unreliable, so this tells you directly whether you're close enough for live data.","75–100 % sitting in or right next to the car. These small adapters reach roughly 5–10 m in the open, less through closed doors and the car body. The bars drop as you walk away: under 50 % data updates slow down, under 25 % you're at the edge of range.","Below 25 % or 'Out of range': move back towards the car. If it stays low while you're inside, the adapter may be loose in the port or another app or phone is also connecting to it."],
  "RV":["Battery voltage at OBD port","Voltage measured by the adapter at the diagnostic socket (directly from the 12 V battery).","Engine off 12.4–12.8 V (healthy, charged). Running 13.2–14.8 V. Your Creta's smart alternator lets it dip to about 12.6–13 V while cruising to save fuel.","Engine off below 12.2 V means discharged. Running below 13.0 V for long periods means the alternator isn't charging."],
  "BAT":["Battery charge %","State of charge of the 12 V battery, estimated from resting voltage (the car doesn't report a % over OBD).","75–100 % is good. Most accurate after the car has been parked for an hour or more.","Below 50 % means charge it (a 30+ min drive or a charger). Repeatedly low means the battery is ageing or there's a parasitic drain."],
  "SOC":["Charge (state of charge)","How full the battery is right now. Not the same as health: a healthy battery can be flat, and a worn battery can show 100 % but fail under load.","75–100 %.",""],
@@ -531,6 +544,7 @@ const INFO = {
 };
 function fieldValue(k) {
   if (k === "RV") return S?.voltage != null ? S.voltage + " V" : null;
+  if (k === "LINK") return S?.link ? `${S.link.pct} %` : null;
   if (k === "BAT" || k === "SOC") { const b = battery(); return b.pct != null ? b.pct + " %" : null; }
   const v = S?.live?.[k]; return v ? `${typeof v.value === "number" ? fmt(v.value, Number.isInteger(v.value) ? 0 : 2) : v.value} ${v.unit}` : null;
 }
@@ -553,7 +567,8 @@ document.addEventListener("click", e => {
   tip.style.display = "none";
   const cur = fieldValue(k);
   $("#infoBody").innerHTML = `<h3 style="margin-top:0">${esc(inf[0])} ${/^[0-9A-F]{2}$/.test(k) ? `<span class="pid">PID 0x${k}</span>` : ""}</h3>
-    ${cur ? `<div class="bignum">${esc(cur)}</div><div class="muted" style="margin-bottom:10px">current value</div>` : ""}
+    ${cur ? `<div class="bignum">${esc(cur)}</div><div class="muted" style="margin-bottom:10px">${k === "LINK" && S?.link
+      ? esc(`${S.link.label}${S.link.ms != null ? ` · replies in ${S.link.ms} ms · ${S.link.ok}% answered` : ""}`) : "current value"}</div>` : ""}
     <div class="infogrid"><div><h4>What it is</h4><p>${esc(inf[1])}</p></div>
     <div><h4 style="color:var(--ok)">Normal for your Creta</h4><p>${esc(inf[2])}</p></div>
     ${inf[3] ? `<div class="warnbox"><h4 style="margin:0">If it's out of range</h4><p style="margin:4px 0 0">${esc(inf[3])}</p></div>` : ""}</div>`;
@@ -893,6 +908,7 @@ function render() {
   const B = battery();
   $("#hdrVolt").textContent = S.voltage != null ? S.voltage.toFixed(1) + " V" + (B.pct != null ? ` · ${B.pct}%` : "") : "–";
   gRpm(L("0C")); gSpd(L("0D")); gTmp(coolant()); gBat(B.pct);
+  renderLink();
   // Knight Rider scanner: 1.6 s sweep at rest, down to 0.35 s near the rev limit
   document.documentElement.style.setProperty("--scan", Math.max(0.35, 1.6 - (L("0C") || 0) / 5000).toFixed(2) + "s");
   $("#batState").textContent = B.state; $("#batNote").textContent = B.note;
@@ -908,6 +924,30 @@ function render() {
   $("#armState").textContent = w ? `Armed. Auto-disarms in ${S.write_remaining}s.` : "Currently read-only.";
   $("#clearBtn").disabled = !w;
 }
+// ------------------------------------------------------------------ Bluetooth link meter
+let linkWasGood = null, toastTimer = null;
+function toast(html, ok = false, ms = 6000) {
+  const t = $("#toast"); t.innerHTML = html; t.className = "show" + (ok ? " ok" : "");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.className = "", ms);
+}
+function renderLink() {
+  const l = S.link, pill = $("#hdrLink");
+  if (!l) { pill.style.display = "none"; return; }           // laptop server mode: no Bluetooth meter
+  pill.style.display = "";
+  const col = l.pct >= 50 ? "var(--ok)" : l.pct >= 25 ? "var(--warn)" : "var(--bad)";
+  pill.style.setProperty("--lc", col);
+  const n = l.pct >= 75 ? 4 : l.pct >= 50 ? 3 : l.pct >= 25 ? 2 : l.pct > 0 ? 1 : 0;
+  document.querySelectorAll("#linkBars i").forEach((b, i) => b.classList.toggle("on", i < n));
+  $("#linkTxt").textContent = S.connected ? `${l.pct}%` : "–";
+  pill.title = `Bluetooth link: ${l.label}`;
+  // alert once when crossing into / out of the weak zone (not while still measuring)
+  if (!S.connected || l.ms == null) return;
+  const good = l.pct >= 25;
+  if (linkWasGood === true && !good) toast(`📶 <b>Bluetooth link weak (${l.pct}%)</b>. You're near the edge of range, so move closer to the car.`);
+  if (linkWasGood === false && good) toast(`📶 Back in range (${l.pct}%)`, true, 3000);
+  linkWasGood = good;
+}
+
 let lastBanner = null;
 async function tick() {
   try { S = await ENGINE.state(); render(); }

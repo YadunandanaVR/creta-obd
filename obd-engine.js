@@ -218,6 +218,25 @@ class DirectEngine {
     this.settings = store.get("settings", {});
     this.rx = ""; this.waiter = null; this.chain = Promise.resolve();
     this.log = [];
+    this.rtt = []; this.lastRx = 0; this.linkEma = null;
+  }
+
+  /* Bluetooth link quality, 0–100 %.
+   * Android gives apps no signal strength (RSSI) for a connected classic-Bluetooth device, so this is
+   * measured from the link itself: share of requests answered × how fast they come back.
+   * Healthy ELM327 round trips are ~40–150 ms; they stretch and start dropping as you walk out of range. */
+  linkQuality() {
+    if (!this.connected || !this.rtt.length) { this.linkEma = null; return {pct: 0, label: this.connected ? "Measuring…" : "No link", ms: null}; }
+    const recent = this.rtt.slice(-20), ok = recent.filter(r => r[1]);
+    const okRate = ok.length / recent.length;
+    const med = ok.length ? ok.map(r => r[0]).sort((a, b) => a - b)[Math.floor(ok.length / 2)] : 5000;
+    const speed = Math.max(0.05, Math.min(1, 1 - (med - 150) / 900));
+    const stale = (Date.now() - this.lastRx) / 1000;
+    const raw = stale > 7 ? 0 : 100 * okRate * speed;   // nothing heard for 7 s = out of range
+    this.linkEma = this.linkEma == null || raw === 0 ? raw : this.linkEma * 0.7 + raw * 0.3;
+    const pct = Math.round(this.linkEma);
+    const label = pct >= 75 ? "Excellent" : pct >= 50 ? "Good" : pct >= 25 ? "Weak, move closer" : "Out of range";
+    return {pct, label, ms: Math.round(med), ok: Math.round(okRate * 100), stale: +stale.toFixed(1)};
   }
   static available() { return "serial" in navigator || isNativeApp(); }
 
@@ -313,12 +332,20 @@ class DirectEngine {
 
   async _io(cmd, timeout) {
     this.rx = "";
+    const t0 = performance.now();
     await this.writer.write(new TextEncoder().encode(cmd + "\r"));
     await new Promise(res => {
       const t = setTimeout(() => { this.waiter = null; res(); }, timeout * 1000);
       this.waiter = () => { clearTimeout(t); this.waiter = null; res(); };
       if (this.rx.includes(">")) this.waiter();
     });
+    // link-quality sample: round-trip time and whether the adapter answered at all
+    const answered = this.rx.includes(">");
+    if (answered) this.lastRx = Date.now();
+    if (timeout <= 3 && cmd !== "ATZ") {
+      this.rtt.push([performance.now() - t0, answered]);
+      if (this.rtt.length > 40) this.rtt.shift();
+    }
     const txt = this.rx.replace(/>/g, ""); this.rx = "";
     return txt.split(/[\r\n]+/).map(l => l.trim()).filter(l => l && l.replace(/\s/g, "").toUpperCase() !== cmd && l !== "SEARCHING...");
   }
@@ -577,7 +604,7 @@ class DirectEngine {
       write_remaining: Math.max(0, Math.round(this.writeUntil - now())), history: this.history.slice(-240), now: now(),
       vhist: this.vhist.slice(-400), mode06: this.mode06, mode06_busy: this.mode06Req, iupr: this.iupr, bat_live: this.batLive,
       bat_busy: this.batReq, bat_tests: this.batTests.map(({samples, ...t}) => t), settings: this.settings, remote: false, direct: true,
-      has_port: !!this.port, log: this.log.slice(-40)};
+      has_port: !!this.port, log: this.log.slice(-40), link: this.linkQuality()};
   }
   async post(path, body = {}) {
     try {
