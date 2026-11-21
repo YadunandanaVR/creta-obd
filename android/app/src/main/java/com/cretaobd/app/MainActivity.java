@@ -9,10 +9,16 @@ import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothSocket;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.View;
+import android.view.Window;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
 import android.view.WindowManager;
+import android.widget.FrameLayout;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -46,6 +52,8 @@ public class MainActivity extends Activity {
     private static final String HOST = "appassets.androidplatform.net";
 
     private WebView web;
+    private FrameLayout root;
+    private int barColor = 0xFF0B0F14;
     private volatile BluetoothSocket socket;
     private volatile OutputStream out;
     private volatile boolean running;
@@ -84,13 +92,55 @@ public class MainActivity extends Activity {
         });
         web.setWebChromeClient(new WebChromeClient());
         web.addJavascriptInterface(new Bridge(), "AndroidBT");
-        setContentView(web);
+
+        // Android 15 draws apps edge-to-edge, under the status and navigation bars.
+        // Pad the content by the system-bar insets so the dashboard header isn't hidden behind the clock.
+        root = new FrameLayout(this);
+        root.setBackgroundColor(barColor);
+        web.setBackgroundColor(barColor);
+        root.addView(web, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        root.setOnApplyWindowInsetsListener((v, insets) -> {
+            int l, t, r, b;
+            if (Build.VERSION.SDK_INT >= 30) {
+                android.graphics.Insets in = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+                l = in.left; t = in.top; r = in.right; b = in.bottom;
+            } else {
+                l = insets.getSystemWindowInsetLeft(); t = insets.getSystemWindowInsetTop();
+                r = insets.getSystemWindowInsetRight(); b = insets.getSystemWindowInsetBottom();
+            }
+            v.setPadding(l, t, r, b);
+            return insets;
+        });
+        setContentView(root);
+        applyBarColor(barColor);
         web.loadUrl("https://" + HOST + "/assets/www/index.html");
     }
 
     @Override
     public void onBackPressed() {
         if (web != null && web.canGoBack()) web.goBack(); else super.onBackPressed();
+    }
+
+    /** Colour behind the status/navigation bars, matching the dashboard theme; picks dark or light bar icons. */
+    @SuppressWarnings("deprecation")
+    private void applyBarColor(int color) {
+        barColor = color;
+        if (root != null) root.setBackgroundColor(color);
+        Window w = getWindow();
+        if (Build.VERSION.SDK_INT < 35) { w.setStatusBarColor(color); w.setNavigationBarColor(color); }
+        int r = (color >> 16) & 0xFF, g = (color >> 8) & 0xFF, b = color & 0xFF;
+        boolean light = (r * 299 + g * 587 + b * 114) / 1000 > 150;
+        if (Build.VERSION.SDK_INT >= 30) {
+            WindowInsetsController c = w.getInsetsController();
+            if (c != null) {
+                int mask = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
+                c.setSystemBarsAppearance(light ? mask : 0, mask);
+            }
+        } else {
+            int f = w.getDecorView().getSystemUiVisibility();
+            f = light ? (f | View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR) : (f & ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+            w.getDecorView().setSystemUiVisibility(f);
+        }
     }
 
     private void js(final String code) {
@@ -168,7 +218,16 @@ public class MainActivity extends Activity {
         public void disconnect() { closeSocket(); }
 
         @JavascriptInterface
-        public String version() { return "1"; }
+        public String version() { return "2"; }
+
+        /** Theme colour from the dashboard, e.g. "#0b0f14" */
+        @JavascriptInterface
+        public void setBarColor(final String hex) {
+            try {
+                final int c = Color.parseColor(hex.trim());
+                runOnUiThread(() -> { applyBarColor(c); if (web != null) web.setBackgroundColor(c); });
+            } catch (IllegalArgumentException ignored) { }
+        }
     }
 
     /**

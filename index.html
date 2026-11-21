@@ -21,9 +21,64 @@
   --bg:#eef2f6; --panel:#ffffff; --panel2:#f4f7fa; --line:#d5dde6; --text:#0f1720; --muted:#5b6b7d;
   --accent:#0a6fd6; --ok:#13a058; --warn:#c77a00; --bad:#d4263a; --needle:#e0401c;
 }
+/* ---------- themes ---------- */
+/* Knight Rider: black dash, red LED scanner sweeping under the header (faster as RPM climbs) */
+:root[data-theme="kitt"]{
+  --bg:#000; --panel:#0a0606; --panel2:#140a0a; --line:#2c0f0f; --text:#ffe4e1; --muted:#b0706a;
+  --accent:#ff2020; --ok:#39e07a; --warn:#ffb020; --bad:#ff2020; --needle:#ff2020; --glow:rgba(255,32,32,.55);
+}
+:root[data-theme="kitt"] .kitt{display:block;position:absolute;left:0;right:0;bottom:-1px;height:3px;overflow:hidden;background:#1a0000}
+:root[data-theme="kitt"] .kitt i{position:absolute;top:0;height:100%;width:22%;border-radius:3px;
+  background:linear-gradient(90deg,transparent,#ff1a1a 40%,#ff8a7a 50%,#ff1a1a 60%,transparent);
+  box-shadow:0 0 12px 3px rgba(255,20,20,.8);animation:kitt var(--scan,1.6s) ease-in-out infinite alternate}
+@keyframes kitt{from{left:-4%}to{left:82%}}
+:root[data-theme="kitt"] .big,:root[data-theme="kitt"] .mini .v span{font-family:Consolas,"Roboto Mono",monospace;text-shadow:0 0 8px var(--glow)}
+/* Dark Knight: matte black and charcoal, gold accents, a soft searchlight glow at the top */
+:root[data-theme="darkknight"]{
+  --bg:#07080a; --panel:#0f1114; --panel2:#171a1f; --line:#262a31; --text:#ebe8df; --muted:#8e8b80;
+  --accent:#f2c230; --ok:#5fd38a; --warn:#f2a530; --bad:#e5484d; --needle:#f2c230; --glow:rgba(242,194,48,.35);
+}
+:root[data-theme="darkknight"] body{background:radial-gradient(ellipse 70% 40% at 50% -8%,rgba(242,194,48,.13),transparent 70%) fixed,var(--bg)}
+:root[data-theme="darkknight"] .card,:root[data-theme="darkknight"] .mini{background:linear-gradient(180deg,#121519,#0d0f12)}
+/* Neon grid: deep navy with cyan and magenta glow */
+:root[data-theme="neon"]{
+  --bg:#05070d; --panel:#0a0f1c; --panel2:#0f1628; --line:#16304a; --text:#dff8ff; --muted:#6f93a8;
+  --accent:#19e6ff; --ok:#2bff9a; --warn:#ffd23f; --bad:#ff3d7f; --needle:#ff2bd6; --glow:rgba(25,230,255,.45);
+}
+:root[data-theme="neon"] .card,:root[data-theme="neon"] .mini{box-shadow:0 0 0 1px rgba(25,230,255,.15),0 0 22px rgba(25,230,255,.06)}
+/* Retro amber: 80s amber-on-black instrument cluster */
+:root[data-theme="amber"]{
+  --bg:#0a0600; --panel:#120c02; --panel2:#1b1304; --line:#3a2808; --text:#ffcc66; --muted:#b08440;
+  --accent:#ffb000; --ok:#c6e35a; --warn:#ff8a00; --bad:#ff4a2a; --needle:#ffb000; --glow:rgba(255,176,0,.45);
+}
+:root[data-theme="amber"] .big,:root[data-theme="amber"] .mini .v span{font-family:Consolas,"Roboto Mono",monospace}
+/* Racing: carbon black with race red */
+:root[data-theme="racing"]{
+  --bg:#0c0c0e; --panel:#151518; --panel2:#1d1d21; --line:#2c2c32; --text:#f5f5f7; --muted:#9a9aa3;
+  --accent:#e10600; --ok:#2fd17a; --warn:#ffb020; --bad:#ff3b30; --needle:#e10600; --glow:rgba(225,6,0,.4);
+}
+:root[data-theme="racing"] .card,:root[data-theme="racing"] .mini{background:repeating-linear-gradient(45deg,#151518 0 6px,#17171a 6px 12px)}
+/* glowing needles + values for the "lit" themes */
+:root[data-theme="kitt"] .needle,:root[data-theme="neon"] .needle,:root[data-theme="amber"] .needle,:root[data-theme="darkknight"] .needle,:root[data-theme="racing"] .needle{filter:drop-shadow(0 0 5px var(--glow))}
+:root[data-theme="kitt"] .card,:root[data-theme="kitt"] .mini{box-shadow:inset 0 0 0 1px #2c0f0f,0 0 18px rgba(255,0,0,.05)}
+header{position:sticky}
+.theme-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.theme-card{border:2px solid var(--line);border-radius:12px;padding:0;overflow:hidden;cursor:pointer;background:none;color:inherit;font:inherit;text-align:left}
+.theme-card.on{border-color:var(--accent)}
+.theme-card .sw{height:58px;position:relative}
+.theme-card .nm{padding:7px 10px;font-size:13px;font-weight:600;background:var(--panel2)}
+
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-header{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:5}
+header{padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:5}
+.hdr-top{display:flex;align-items:center;gap:8px}
+.hdr-title{flex:1;min-width:0}
+.hdr-title h1,.hdr-title .sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hdr-pills{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center}
+.hdr-pills .mode{margin-left:auto}
+.btn.icon{width:36px;height:36px;padding:0;display:grid;place-items:center;flex:none}
+#connectBtn{flex:none}
+.kitt{display:none}
 header h1{font-size:17px;margin:0;font-weight:650;letter-spacing:.2px}
 header .sub{color:var(--muted);font-size:12px}
 .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);font-size:12px;white-space:nowrap}
@@ -131,7 +186,8 @@ dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);bo
 dialog::backdrop{background:rgba(0,0,0,.6)}
 @media (max-width:600px){
   header h1{font-size:15px} .mini .v{font-size:19px} main{padding:10px}
-  header{gap:6px 8px;padding:8px 12px} .pill{font-size:11px;padding:3px 8px} header .btn{padding:5px 10px}
+  header{padding:8px 12px} .pill{font-size:11px;padding:3px 8px} .btn.icon{width:32px;height:32px}
+  .hdr-pills{gap:5px;margin-top:6px}
   header .sub{font-size:11px}
   .g-gauges{grid-template-columns:1fr 1fr;gap:8px}
   .card.gauge{padding:8px 6px} .card.gauge h2{font-size:10px;letter-spacing:.4px;margin-bottom:2px}
@@ -144,18 +200,22 @@ dialog::backdrop{background:rgba(0,0,0,.6)}
 </head>
 <body>
 <header>
-  <div>
-    <h1>Hyundai Creta · OBD-II</h1>
-    <div class="sub" id="subtitle">2024 King edition · connecting…</div>
+  <div class="hdr-top">
+    <div class="hdr-title">
+      <h1>Hyundai Creta · OBD-II</h1>
+      <div class="sub" id="subtitle">2024 King edition · connecting…</div>
+    </div>
+    <button class="btn primary" id="connectBtn" style="display:none">🔗 Connect</button>
+    <button class="btn icon" id="helpBtn" title="Help">?</button>
+    <button class="btn icon" id="themeBtn" title="Themes">🎨</button>
   </div>
-  <span class="pill"><span class="dot" id="connDot"></span><span id="connTxt">Connecting</span></span>
-  <span class="pill">🔋 <span id="hdrVolt">–</span></span>
-  <span class="pill" id="hdrMil">MIL –</span>
-  <span class="spacer"></span>
-  <span class="pill mode" id="modePill" title="Click to change mode">🔒 READ-ONLY</span>
-  <button class="btn primary" id="connectBtn" style="display:none">🔗 Connect</button>
-  <button class="btn" id="helpBtn" title="How to use on a phone">?</button>
-  <button class="btn" id="themeBtn" title="Toggle theme">◐</button>
+  <div class="hdr-pills">
+    <span class="pill"><span class="dot" id="connDot"></span><span id="connTxt">Connecting</span></span>
+    <span class="pill">🔋 <span id="hdrVolt">–</span></span>
+    <span class="pill" id="hdrMil">MIL –</span>
+    <span class="pill mode" id="modePill" title="Click to change mode">🔒 READ-ONLY</span>
+  </div>
+  <div class="kitt" aria-hidden="true"><i></i></div>
 </header>
 <nav id="tabs">
   <button data-t="dash" class="on">Dashboard</button>
@@ -363,10 +423,42 @@ const L = pid => S?.live?.[pid]?.value;
 const coolant = () => L("67") ?? L("05");
 const fmt = (v, d = 0) => v == null || v === "" ? "–" : (typeof v === "number" ? v.toFixed(d) : v);
 
-try { const t = localStorage.getItem("obdTheme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+// ------------------------------------------------------------------ themes
+// [id, name, background, panel, accent, needle]
+const THEMES = [
+  ["dark", "Midnight", "#0b0f14", "#121821", "#3fa7ff", "#ff5a36"],
+  ["kitt", "Knight Rider", "#000000", "#0a0606", "#ff2020", "#ff2020"],
+  ["darkknight", "Dark Knight", "#07080a", "#0f1114", "#f2c230", "#f2c230"],
+  ["neon", "Neon Grid", "#05070d", "#0a0f1c", "#19e6ff", "#ff2bd6"],
+  ["amber", "Retro Amber", "#0a0600", "#120c02", "#ffb000", "#ffb000"],
+  ["racing", "Racing Red", "#0c0c0e", "#151518", "#e10600", "#e10600"],
+  ["light", "Daylight", "#eef2f6", "#ffffff", "#0a6fd6", "#e0401c"],
+];
+function applyTheme(id) {
+  const t = THEMES.find(x => x[0] === id) || THEMES[0];
+  document.documentElement.dataset.theme = t[0];
+  try { localStorage.setItem("obdTheme", t[0]); } catch (e) {}
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", t[3]);
+  try { window.AndroidBT?.setBarColor?.(t[3]); } catch (e) {}   // Android app: status/nav bar colour
+  if (typeof drawChart === "function" && S) drawChart();
+}
+try { applyTheme(localStorage.getItem("obdTheme") || "dark"); } catch (e) { applyTheme("dark"); }
 $("#themeBtn").onclick = () => {
-  const n = document.documentElement.dataset.theme === "light" ? "dark" : "light";
-  document.documentElement.dataset.theme = n; try { localStorage.setItem("obdTheme", n); } catch (e) {}
+  const cur = document.documentElement.dataset.theme;
+  warnBox("Choose a theme", `<div class="theme-grid">${THEMES.map(([id, nm, bg, pn, ac, nd]) => `
+    <button type="button" class="theme-card${id === cur ? " on" : ""}" data-theme-id="${id}">
+      <div class="sw" style="background:${bg}">
+        <svg viewBox="0 0 120 58" width="100%" height="58"><path d="M24 50a36 36 0 0 1 72 0" fill="none" stroke="${pn}" stroke-width="7" stroke-linecap="round"/>
+        <path d="M24 50a36 36 0 0 1 52-32" fill="none" stroke="${ac}" stroke-width="7" stroke-linecap="round"/>
+        <path d="M60 50L80 26" stroke="${nd}" stroke-width="3.5" stroke-linecap="round"/><circle cx="60" cy="50" r="4.5" fill="${nd}"/></svg>
+        ${id === "kitt" ? `<div style="position:absolute;left:0;right:0;bottom:0;height:3px;background:linear-gradient(90deg,transparent 30%,#ff1a1a 45%,#ff8a7a 50%,#ff1a1a 55%,transparent 70%)"></div>` : ""}
+      </div>
+      <div class="nm">${nm}</div></button>`).join("")}</div>`);
+  $("#wdB").onclick = e => {
+    const b = e.target.closest("[data-theme-id]"); if (!b) return;
+    applyTheme(b.dataset.themeId);
+    document.querySelectorAll(".theme-card").forEach(c => c.classList.toggle("on", c === b));
+  };
 };
 document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
   document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("on", x === b));
@@ -801,6 +893,8 @@ function render() {
   const B = battery();
   $("#hdrVolt").textContent = S.voltage != null ? S.voltage.toFixed(1) + " V" + (B.pct != null ? ` · ${B.pct}%` : "") : "–";
   gRpm(L("0C")); gSpd(L("0D")); gTmp(coolant()); gBat(B.pct);
+  // Knight Rider scanner: 1.6 s sweep at rest, down to 0.35 s near the rev limit
+  document.documentElement.style.setProperty("--scan", Math.max(0.35, 1.6 - (L("0C") || 0) / 5000).toFixed(2) + "s");
   $("#batState").textContent = B.state; $("#batNote").textContent = B.note;
   MINIS.forEach(m => { const el = document.querySelector(`.mini[data-p="${m[0]}"]`), v = L(m[0]);
     el.style.display = S.live?.[m[0]] || !c ? "" : "none";
