@@ -194,23 +194,35 @@ class DirectEngine {
     this.batTests = store.get("batTests", []); this.batReq = false; this.batLive = null;
     this.settings = store.get("settings", {});
     this.rx = ""; this.waiter = null; this.chain = Promise.resolve();
+    this.log = [];
   }
   static available() { return "serial" in navigator; }
 
-  // user gesture required the first time
-  async choose() {
+  log_(msg) {
+    this.log.push(`${new Date().toLocaleTimeString()}  ${msg}`);
+    if (this.log.length > 80) this.log = this.log.slice(-80);
+  }
+  // user gesture required the first time.
+  // Plain requestPort() is Chrome's documented way to list standard Bluetooth SPP adapters;
+  // alt=true uses an explicit SPP service filter instead (some phones list the device only this way).
+  async choose(alt = false) {
+    const opts = alt ? {allowedBluetoothServiceClassIds: [SPP], filters: [{bluetoothServiceClassId: SPP}]} : undefined;
+    this.log_(`Opening adapter picker (${alt ? "SPP filter" : "standard"})…`);
     let p;
-    try { p = await navigator.serial.requestPort({allowedBluetoothServiceClassIds: [SPP]}); }
+    try { p = await navigator.serial.requestPort(opts); }
     catch (e) {
+      this.log_(`Picker: ${e.name}: ${e.message}`);
       if (e.name === "NotFoundError") throw new Error("No adapter was selected.");
-      p = await navigator.serial.requestPort({allowedBluetoothServiceClassIds: [SPP], filters: [{bluetoothServiceClassId: SPP}]});
+      throw e;
     }
+    try { this.log_("Picked port: " + JSON.stringify(p.getInfo())); } catch (e) {}
     await this.setPort(p);
   }
   // reconnect to an adapter chosen earlier, no picker needed
   async reuse() {
     if (!DirectEngine.available()) return false;
     const ps = await navigator.serial.getPorts();
+    this.log_(`Previously allowed ports: ${ps.length}`);
     if (!ps.length) return false;
     await this.setPort(ps[ps.length - 1]); return true;
   }
@@ -221,7 +233,9 @@ class DirectEngine {
   }
 
   async _open() {
+    this.log_("Opening Bluetooth link…");
     await this.port.open({baudRate: 38400});
+    this.log_("Link open");
     this.writer = this.port.writable.getWriter();
     this.reader = this.port.readable.getReader();
     this.opened = true;
@@ -286,8 +300,12 @@ class DirectEngine {
   }
 
   async connectCar() {
-    for (const c of ["ATZ", "ATE0", "ATL0", "ATS0", "ATH0", "ATAT1", "ATSP0"]) await this.send(c, 3);
+    for (const c of ["ATZ", "ATE0", "ATL0", "ATS0", "ATH0", "ATAT1", "ATSP0"]) {
+      const r = await this.send(c, 3);
+      if (c === "ATZ") this.log_(`Adapter reply to ATZ: ${r.join(" | ") || "(nothing)"}`);
+    }
     const r = await this.send("0100", 12);
+    this.log_(`Car reply to 0100: ${r.join(" | ") || "(nothing)"}`);
     if (!r.some(l => l.replace(/\s/g, "").startsWith("4100")))
       throw new Error("Car not responding (" + r.join(" ") + "). Is the ignition ON?");
     this.connected = true; this.error = "";
@@ -473,8 +491,9 @@ class DirectEngine {
           await this.connectCar(); await this.refreshDiag(); await this.readIupr(); lastDiag = Date.now();
         } catch (e) {
           const msg = String(e.message || e);
+          this.log_(`Connect failed: ${e.name || "Error"}: ${msg}`);
           this.error = /Failed to open|NetworkError|in use|already open/i.test(msg)
-            ? "Couldn't open the adapter. Make sure it's plugged in, the ignition is ON, and no other app or device is connected to it." : msg;
+            ? `Couldn't open the Bluetooth link (${msg}). Make sure the adapter is plugged in, the ignition is ON, and no other app or device is connected to it.` : msg;
           await this._close(); await sleep(5000); continue;
         }
       }
@@ -507,7 +526,7 @@ class DirectEngine {
       write_remaining: Math.max(0, Math.round(this.writeUntil - now())), history: this.history.slice(-240), now: now(),
       vhist: this.vhist.slice(-400), mode06: this.mode06, mode06_busy: this.mode06Req, iupr: this.iupr, bat_live: this.batLive,
       bat_busy: this.batReq, bat_tests: this.batTests.map(({samples, ...t}) => t), settings: this.settings, remote: false, direct: true,
-      has_port: !!this.port};
+      has_port: !!this.port, log: this.log.slice(-40)};
   }
   async post(path, body = {}) {
     try {

@@ -786,11 +786,16 @@ function render() {
   $("#connectBtn").style.display = direct && !c ? "" : "none";
   if (ENGINE.demo) { $("#connTxt").textContent = c ? "DEMO data (simulated car)" : "Starting demo…"; }
   $("#discBanner").style.display = c ? "none" : "";
-  $("#discBanner").innerHTML = direct && !S.has_port
+  const bannerHtml = direct && !S.has_port
     ? `<b>Not connected.</b> Pair the <b>OBDII</b> adapter in your phone's Bluetooth settings (PIN 1234), turn the ignition ON, then
-       <button class="btn primary" id="bannerConnect" style="margin-left:6px">🔗 Connect</button> <span class="muted">(Tap ? for help)</span>`
+       <button class="btn primary" id="bannerConnect" style="margin-left:6px">🔗 Connect</button>
+       <button class="btn" id="bannerAlt">OBDII not in the list? Try alternative</button>
+       <button class="btn" id="bannerLog">Connection log</button>`
     : `Not connected to the OBD adapter${direct ? "" : " on " + esc(S.port)}: ${esc(S.error || "…")} Retrying every 5 s. Check that the ignition is ON and the adapter is plugged in.` +
-      (direct ? ` <button class="btn" id="bannerConnect" style="margin-left:6px">Choose adapter again</button>` : "");
+      (direct ? ` <button class="btn" id="bannerConnect" style="margin-left:6px">Choose adapter again</button>
+        <button class="btn" id="bannerAlt">Try alternative picker</button> <button class="btn" id="bannerLog">Connection log</button>` : "");
+  // only touch the DOM when the text changes, so buttons aren't replaced under the user's finger
+  if (bannerHtml !== lastBanner) { $("#discBanner").innerHTML = bannerHtml; lastBanner = bannerHtml; }
   const B = battery();
   $("#hdrVolt").textContent = S.voltage != null ? S.voltage.toFixed(1) + " V" + (B.pct != null ? ` · ${B.pct}%` : "") : "–";
   gRpm(L("0C")); gSpd(L("0D")); gTmp(coolant()); gBat(B.pct);
@@ -807,6 +812,7 @@ function render() {
   $("#armState").textContent = w ? `Armed. Auto-disarms in ${S.write_remaining}s.` : "Currently read-only.";
   $("#clearBtn").disabled = !w;
 }
+let lastBanner = null;
 async function tick() {
   try { S = await ENGINE.state(); render(); }
   catch (e) { $("#connTxt").textContent = ENGINE?.kind === "server" ? "Laptop server offline" : "Error"; $("#connDot").className = "dot bad"; }
@@ -818,14 +824,27 @@ async function tick() {
   tick();
 })();
 // "Connect" (direct Bluetooth mode): the adapter picker must be opened from a tap
-async function connectAdapter() {
-  if (!OBD.DirectEngine.available()) return warnBox("This browser can't reach the adapter", `<p>Direct Bluetooth needs <b>Chrome on Android (version 137 or newer)</b> or Chrome/Edge on a computer.</p>
+const chromeVer = () => +(navigator.userAgent.match(/Chrome\/(\d+)/) || [])[1] || null;
+async function connectAdapter(alt = false) {
+  if (!OBD.DirectEngine.available()) return warnBox("This browser can't reach the adapter", `<p>Direct Bluetooth needs <b>Chrome on Android (version 137 or newer)</b> or Chrome/Edge on a computer.
+    ${chromeVer() ? `This browser reports Chrome <b>${chromeVer()}</b>${chromeVer() < 137 ? ", which is too old. Update Chrome from the Play Store" : ""}.` : ""}</p>
     <p class="muted">iPhones and in-app browsers (WhatsApp, Instagram etc.) can't use classic Bluetooth adapters like this OBDII one. Open this link in Chrome.</p>`);
-  try { await ENGINE.choose(); }
+  try { await ENGINE.choose(alt); }
   catch (e) { if (!/No adapter was selected|cancel/i.test(String(e.message))) warnBox("Couldn't connect", `<p>${esc(e.message || e)}</p>`); }
 }
-$("#connectBtn").onclick = connectAdapter;
-$("#discBanner").onclick = e => { if (e.target.closest("#bannerConnect")) connectAdapter(); };
+function diagHtml() {
+  const lines = S?.log || ENGINE?.log || [];
+  return `<h4 style="margin:14px 0 4px">Connection log</h4>
+    <p class="muted" style="margin:0 0 6px;font-size:12px">Chrome ${chromeVer() ?? "?"} · Bluetooth serial ${"serial" in navigator ? "available" : "NOT available"} · ${esc(navigator.userAgent.match(/Android [\d.]+|Windows NT [\d.]+|Mac OS X [\d_]+/)?.[0] || "")}</p>
+    <pre id="diagLog" style="white-space:pre-wrap;font-size:11.5px;background:var(--panel2);padding:8px;border-radius:8px;max-height:220px;overflow:auto;margin:0">${esc(lines.join("\n") || "(nothing yet: tap Connect first)")}</pre>
+    <button class="btn" type="button" style="margin-top:6px" onclick="navigator.clipboard.writeText(document.getElementById('diagLog').innerText).then(()=>this.textContent='Copied ✓')">Copy log</button>`;
+}
+$("#connectBtn").onclick = () => connectAdapter(false);
+$("#discBanner").onclick = e => {
+  if (e.target.closest("#bannerConnect")) connectAdapter(false);
+  if (e.target.closest("#bannerAlt")) connectAdapter(true);
+  if (e.target.closest("#bannerLog")) warnBox("Connection details", diagHtml());
+};
 $("#helpBtn").onclick = () => warnBox("Using this app on your phone", `
   <ol style="padding-left:18px;margin:0">
     <li><b>Pair the adapter once:</b> on Android open Settings → Bluetooth → Pair new device → <b>OBDII</b>. The PIN is usually <b>1234</b> (or 0000).</li>
@@ -834,7 +853,8 @@ $("#helpBtn").onclick = () => warnBox("Using this app on your phone", `
     <li><b>Install it:</b> Chrome menu ⋮ → <b>Add to Home screen / Install app</b>. It then opens full-screen like an app and works offline.</li>
   </ol>
   <p class="muted" style="margin-top:10px">The adapter talks to one device at a time. Disconnect the laptop (or other OBD apps) first. Keep Chrome on screen while reading, because Android may pause Bluetooth for background tabs.</p>
-  <p class="muted">Your battery tests, odometer calibration and write log are stored on this phone only.</p>`);
+  <p class="muted"><b>Paired but not "Connected" in Android's Bluetooth list?</b> That's normal for OBD adapters. They only connect when an app opens them.</p>
+  <p class="muted">Your battery tests, odometer calibration and write log are stored on this phone only.</p>` + (ENGINE?.kind === "direct" ? diagHtml() : ""));
 
 // ------------------------------------------------------------------ actions
 $("#rescan").onclick = async () => { $("#rescan").disabled = true; await api("/api/refresh", {}); $("#rescan").disabled = false; };
