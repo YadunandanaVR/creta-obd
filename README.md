@@ -29,5 +29,15 @@ Then open http://127.0.0.1:8765.
 - Symptom checker, live health checks, ECU distance → odometer calibration
 - Demo mode: open with `?demo=1` (or `?demo=dtc` for simulated fault codes, `?demo=bike` for an air-cooled K-line motorcycle)
 
+- Trips: automatic logbook (GPS start/end and route, distance, duration, fuel used, km/L, cost, top/avg speed, max temps, harsh driving), fill-up calibration
+- Under the hood: live CSS-3D engine (pistons follow RPM, parts colour with temperature) + readings by system, cylinder health
+- Hidden data: module scan + ISO 14229 ECU identification, data-ID scanner with live byte watch (finds bytes that follow RPM/speed/temp), custom PIDs
+- Alerts (overheat, battery, charging, red zone, speed, new codes), 0–60 / 0–100 / 40–80 timers
+- Export: printable / PDF health report, trips CSV, full JSON; optional Google Sheets backup through your own Apps Script
+
+## Claude (MCP server)
+`mcp_server/obd_mcp.py` exposes read-only tools (status, live data, codes, readiness, vehicle info, battery, on-board tests, trips) by talking to `server.py`.
+Install `pip install mcp`, run `python server.py COM4`, and the `.mcp.json` in the parent folder registers it for Claude Code. There is intentionally no write tool.
+
 ## Safety
 Only OBD read services (01 02 03 06 07 09 0A) and info AT commands can be sent. The single write, Mode 04 (clear codes), needs write mode armed by the user + typed confirmation + engine off, and disarms after one use. Everything else (UDS writes, resets, coding, flashing) is blocked.

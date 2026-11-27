@@ -148,16 +148,22 @@ function socFromV(v) {
 const SAFE_AT = new Set(["ATZ", "ATWS", "ATE0", "ATL0", "ATS0", "ATS1", "ATH0", "ATH1", "ATSP0", "ATI", "AT@1", "ATRV", "ATDP", "ATDPN", "ATAT1", "ATAT2"]);
 const READ_MODES = new Set(["01", "02", "03", "06", "07", "09", "0A"]);
 class WriteBlocked extends Error {}
-function guard(cmd, allowWrite = false) {
+// explore=true is used only by the "Hidden data" explorer: it additionally allows addressing one module
+// (ATSH/ATCRA/ATAR = adapter settings) and manufacturer READ services:
+//   0x22 ReadDataByIdentifier (22 + 2-byte ID), 0x21 ReadDataByLocalIdentifier (21 + 1 byte), 0x1A ReadEcuIdentification (1A + 1 byte).
+// Session control, security access, I/O control, routines, writes and resets stay blocked.
+function guard(cmd, allowWrite = false, explore = false) {
   const c = String(cmd).toUpperCase().replace(/\s+/g, "");
   if (c.startsWith("AT")) {
     // ATSTxx = reply timeout, ATSPn = choose OBD protocol (adapter settings only, nothing is sent to the car)
     if (SAFE_AT.has(c) || /^ATST[0-9A-F]{2}$/.test(c) || /^ATSP[0-9A-C]$/.test(c)) return c;
+    if (explore && (/^ATSH[0-7][0-9A-F]{2}$/.test(c) || /^ATCRA([0-7][0-9A-F]{2})?$/.test(c) || c === "ATAR")) return c;
     throw new WriteBlocked(`Adapter command '${c}' is not on the read-only allow-list`);
   }
   if (!/^[0-9A-F]{2,14}$/.test(c)) throw new WriteBlocked("Only hex OBD requests are allowed");
   const mode = c.slice(0, 2);
   if (READ_MODES.has(mode)) return c;
+  if (explore && (/^22[0-9A-F]{4}$/.test(c) || /^21[0-9A-F]{2}$/.test(c) || /^1A[0-9A-F]{2}$/.test(c))) return c;
   if (allowWrite && c === "04") return c;
   throw new WriteBlocked(`Service 0x${mode} is not a read service; blocked in read-only mode`);
 }
@@ -221,6 +227,40 @@ class DirectEngine {
     this.log = [];
     this.rtt = []; this.lastRx = 0; this.linkEma = null;
     this.protocol = "0"; this.isCan = true;
+    this.jobs = [];
+  }
+
+  // ---------------------------------------------------------------- manufacturer-data explorer (read-only)
+  runJob(fn) {
+    if (!this.connected) return Promise.reject(new Error("Not connected to the car"));
+    return new Promise((res, rej) => this.jobs.push({fn, res, rej}));
+  }
+  // One request to one module (physical address), e.g. ("7E0", "22F187"). Returns {bytes} | {neg} | null.
+  async _uds(header, req, timeout = 1.2) {
+    await this.send("ATSH" + header, 1, false, true);
+    const rx = (parseInt(header, 16) + 8).toString(16).toUpperCase();
+    await this.send("ATCRA" + rx, 1, false, true).catch(() => {});   // some clones lack ATCRA: physical requests only get one reply anyway
+    const lines = await this.send(req, timeout, false, true);
+    const pos = h2(parseInt(req.slice(0, 2), 16) + 0x40) + req.slice(2);
+    for (const m of DirectEngine.hexjoin(lines)) {
+      if (m.startsWith(pos)) return {bytes: hexToBytes(m.slice(pos.length)), raw: m};
+      if (m.startsWith("7F" + req.slice(0, 2))) return {neg: m.slice(4, 6), raw: m};
+    }
+    return null;
+  }
+  async _restoreHeaders() {
+    for (const c of ["ATCRA", "ATSH7DF", "ATAR", "ATST32"]) await this.send(c, 1, false, true).catch(() => {});
+  }
+  explore(fn) {
+    if (!this.isCan) return Promise.reject(new Error("Manufacturer data needs a CAN vehicle (this one uses K-line / J1850)."));
+    return this.runJob(async () => {
+      try { await this.send("ATST19", 1); return await fn(); }   // short timeout: scans stay quick
+      finally { await this._restoreHeaders(); }
+    });
+  }
+  exploreRead(header, req) { return this.explore(() => this._uds(header, req)); }
+  exploreMany(list) {            // [[header, req], ...] → [{header, req, res}]
+    return this.explore(async () => { const out = []; for (const [h, r] of list) out.push({header: h, req: r, res: await this._uds(h, r).catch(e => ({error: String(e.message || e)}))}); return out; });
   }
   // OBD protocol from the vehicle profile ("0" = auto). Changing it re-initialises the adapter.
   setProtocol(p) {
@@ -358,8 +398,8 @@ class DirectEngine {
     const txt = this.rx.replace(/>/g, ""); this.rx = "";
     return txt.split(/[\r\n]+/).map(l => l.trim()).filter(l => l && l.replace(/\s/g, "").toUpperCase() !== cmd && l !== "SEARCHING...");
   }
-  send(cmd, timeout = 4, allowWrite = false) {
-    const c = guard(cmd, allowWrite);
+  send(cmd, timeout = 4, allowWrite = false, explore = false) {
+    const c = guard(cmd, allowWrite, explore);
     if (!this.opened) return Promise.reject(new Error("adapter not connected"));
     const p = this.chain.then(() => this._io(c, timeout));
     this.chain = p.catch(() => {});
@@ -599,6 +639,9 @@ class DirectEngine {
       try {
         if (this.batReq) { this.batReq = false; try { await this.batteryTest(); } catch (e) { this.batLive = {phase: "error", msg: String(e.message || e)}; } }
         if (this.mode06Req) { try { await this.readMode06(); await this.readIupr(); } finally { this.mode06Req = false; } }
+        // exclusive jobs (e.g. the Hidden-data explorer) run between polling rounds so nothing interleaves with them.
+        // One job per round: live data keeps updating even while a scan or watch is busy.
+        if (this.jobs.length) { const j = this.jobs.shift(); try { j.res(await j.fn()); } catch (e) { j.rej(e); } }
         const fast = [...FAST, this.supported.has(0x67) ? 0x67 : 0x05].filter(p => this.supported.has(p));
         const slow = [...this.supported].sort((a, b) => a - b).filter(p => PIDS[p] && !fast.includes(p));
         for (const p of fast) await this.pollPid(p);

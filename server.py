@@ -716,6 +716,9 @@ class H(BaseHTTPRequestHandler):
                 "remote": not self._local(),
                 "phone": ({"enabled": LAN, "url": f"http://{lan_ip()}:{HTTP_PORT}/?key={KEY}" if LAN and lan_ip() else None}
                           if self._local() else None)})
+        if p == "/api/trips":                       # trips recorded by the dashboard in this browser (also read by the MCP server)
+            trips = load_json("trips.json", [])
+            return self._json({"trips": trips[-200:]})
         if p == "/api/writelog":
             fp = os.path.join(HERE, "write_log.txt")
             return self._json({"log": open(fp, encoding="utf-8").read() if os.path.exists(fp) else ""})
@@ -737,6 +740,13 @@ class H(BaseHTTPRequestHandler):
         try:
             if p == "/api/refresh":
                 elm.refresh_diag(); return self._json({"ok": True})
+            if p == "/api/trips":
+                if not isinstance(body, dict) or not body.get("id"):
+                    return self._json({"ok": False, "error": "trip needs an id"}, 400)
+                trips = [t for t in load_json("trips.json", []) if t.get("id") != body["id"]]
+                trips.append(body)
+                save_json("trips.json", trips[-500:])
+                return self._json({"ok": True, "count": len(trips)})
             if p == "/api/mode06":
                 elm.mode06_req = True; return self._json({"ok": True})
             if p == "/api/battery-test":

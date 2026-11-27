@@ -92,6 +92,7 @@ class CarSim {
     if (c === "ATDP") return [this.kline ? "AUTO, ISO 14230-4 (KWP FAST)" : "AUTO, ISO 15765-4 (CAN 11/500)"];
     if (c === "ATDPN") return [this.kline ? "A5" : "A6"];
     if (c === "ATRV") return [(this.rpm > 300 ? 14.4 + this.n(0.1) : 12.5).toFixed(1) + "V"];
+    if (c.startsWith("ATSH")) { this.hdr = c.slice(4); return ["OK"]; }
     if (c === "ATH1") { this.headers = true; return ["OK"]; }
     if (c === "ATH0") { this.headers = false; return ["OK"]; }
     if (c.startsWith("AT")) return ["OK"];
@@ -110,6 +111,16 @@ class CarSim {
       if (mode === "09" && p === 0x02) return m09(2, "000000" + asciiHex(this.bike ? "ME3DEMOBIKE000001" : "MA3DEMOKLINE00001"));
       if (mode === "09" && p === 0x0A) return m09(0x0A, asciiHex("ECM-Demo".padEnd(20, "\0")));
       if (mode === "09") return ["NO DATA"];
+    }
+    // manufacturer reads (UDS 0x22) addressed with ATSH: a few fake modules + two fake live data IDs on the engine ECU
+    if (mode === "22" && this.hdr && this.hdr !== "7DF") {
+      const did = c.slice(2, 6), mods = {"7E0": ["DEMO-ECM-391", "ECM SW 1.02"], "7E1": ["DEMO-TCM-450", "TCM SW 3.1"], "7D1": ["DEMO-ESC-588", "ESC 2.0"], "7A0": ["DEMO-BCM-954", "BCM 1.7"]};
+      const m = mods[this.hdr]; if (!m) return ["NO DATA"];
+      if (did === "F187") return out("62F187" + asciiHex(m[0]));
+      if (did === "F189") return out("62F189" + asciiHex(m[1]));
+      if (this.hdr === "7E0" && did === "0101") return out("620101" + hx(this.rpm / 32) + hx(0x5A) + hx(this.cool + 40) + "00" + hx(Math.random() * 255));
+      if (this.hdr === "7E0" && did === "0102") return out("620102" + hx(128 + this.n(6)) + hx(128 + this.n(6)) + hx(128 + this.n(6)) + hx(128 + this.n(6)));
+      return ["7F2231"];
     }
     switch (mode) {
       case "01": { const d = this.pid(p); return d == null ? ["NO DATA"] : out("41" + hx(p) + d); }

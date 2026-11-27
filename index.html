@@ -80,6 +80,17 @@ header{padding:10px 16px;border-bottom:1px solid var(--line);background:var(--pa
 #connectBtn{flex:none}
 .kitt{display:none}
 #vehTitle{cursor:pointer}
+/* report view + printing */
+#reportView{display:none}
+body.reporting #reportView{display:block;position:fixed;inset:0;z-index:40;overflow:auto;background:#fff;color:#111}
+body.reporting > header, body.reporting > nav, body.reporting > main{display:none}
+.rep-bar{position:sticky;top:0;display:flex;gap:8px;align-items:center;padding:10px 16px;background:#f2f4f7;border-bottom:1px solid #ddd}
+.rep-bar .btn{background:#fff;color:#111;border-color:#ccc}.rep-bar .btn.primary{background:#0a6fd6;color:#fff;border-color:#0a6fd6}
+.rep{max-width:820px;margin:0 auto;padding:20px 18px 40px;font:13px/1.45 system-ui,sans-serif}
+.rep h1{font-size:22px;margin:0 0 4px}.rep h2{font-size:15px;margin:20px 0 6px;border-bottom:2px solid #0a6fd6;padding-bottom:3px}.rep h3{font-size:13px}
+.rep table{width:100%;border-collapse:collapse}.rep td,.rep th{border-bottom:1px solid #e3e6ea;padding:5px 6px;text-align:left;vertical-align:top}
+.rep .muted{color:#667}
+@media print{ .rep-bar{display:none} body.reporting #reportView{position:static;overflow:visible} body{background:#fff} }
 .vgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 10px}
 .vf{display:grid;gap:3px;font-size:12px;color:var(--muted);min-width:0}
 .vf input,.vf select{width:100%;min-width:0;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:9px;padding:8px 10px;font:inherit;font-size:14px}
@@ -238,6 +249,10 @@ dialog::backdrop{background:rgba(0,0,0,.6)}
   <button data-t="data">All live data</button>
   <button data-t="vehicle">Vehicle &amp; features</button>
   <button data-t="console">Console</button>
+  <button data-t="trips">Trips</button>
+  <button data-t="hood">Under the hood</button>
+  <button data-t="hidden">Hidden data</button>
+  <button data-t="export">Export &amp; sync</button>
   <button data-t="write">Features &amp; write mode</button>
 </nav>
 <main>
@@ -339,6 +354,63 @@ dialog::backdrop{background:rgba(0,0,0,.6)}
     </div>
   </section>
 
+  <!-- TRIPS -->
+  <section id="trips">
+    <div class="card"><h2>Current trip</h2><div id="tripLive"></div></div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:14px" id="tripSummary"></div>
+    <div class="card" style="margin-top:14px"><h2>Past trips</h2>
+      <p class="muted" style="margin-top:0;font-size:12.5px">Every drive is saved automatically on this device. Tap a trip for its route, charts and details.
+        Mileage is estimated from engine data. <button class="btn" type="button" id="tripCalBtn" style="padding:3px 10px">⛽ Calibrate with a fill-up</button> makes it match your pump.</p>
+      <div id="tripList"></div></div>
+    <div class="grid g-cards" style="margin-top:14px">
+      <div class="card"><h2>Performance timer</h2><div id="perfBox"></div></div>
+      <div class="card"><h2>Alerts</h2><p class="muted" style="margin-top:0;font-size:12.5px">Pop-up, vibration and beep while connected.</p><div id="alertsCfg"></div></div>
+    </div>
+  </section>
+
+  <!-- UNDER THE HOOD -->
+  <section id="hood">
+    <div class="card"><h2>Live 3D engine</h2>
+      <div class="e3-wrap" id="e3wrap"><div class="e3-scene" id="e3scene"></div><div class="e3-hint">drag to rotate · pistons move with RPM · parts colour with temperature</div></div>
+      <div class="sysgrid" id="sysGrid"></div>
+      <p class="muted" style="font-size:12px;margin-bottom:0">Tap a system to highlight it on the engine, or tap a reading for what it means.</p></div>
+    <div class="card" style="margin-top:14px"><h2>Cylinder health</h2><div id="cylHealth"></div></div>
+  </section>
+
+  <!-- HIDDEN DATA -->
+  <section id="hidden">
+    <div class="card"><h2>Hidden manufacturer data</h2>
+      <p class="muted" style="margin-top:0">Beyond standard OBD, every module in the car answers manufacturer "read data" requests (UDS, ISO 14229).
+        This tab only uses read services (0x22 / 0x21 / 0x1A). It never opens diagnostic sessions, unlocks security, runs routines or writes anything.
+        Works in the Android app (direct Bluetooth) on CAN vehicles.</p><div id="hStatus"></div></div>
+    <div class="card" style="margin-top:14px"><h2>1 · Modules in this car</h2>
+      <div class="row" style="margin-bottom:8px"><button class="btn primary" type="button" id="hScanMods">🔎 Scan common modules</button>
+        <button class="btn" type="button" id="hScanDeep">Deep scan (all addresses, about 1 min)</button></div>
+      <div id="hScanProg"></div><div id="hModules"></div></div>
+    <div class="card" style="margin-top:14px"><h2>2 · Find hidden values</h2>
+      <p class="muted" style="margin-top:0;font-size:12.5px">Scan a range of data IDs on a module and see which ones answer. Then <b>Watch</b> them with the engine running:
+        the app highlights changing bytes and spots which byte follows RPM, speed or temperature. Turn any of them into a custom PID below.</p>
+      <div class="vgrid" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr))">
+        <label class="vf">Module<select id="hsModList"></select></label><label class="vf">Address<input id="hsMod" value="7E0"></label>
+        <label class="vf">Service<select id="hsSvc"><option value="22">22 · by identifier</option><option value="21">21 · by local ID</option></select></label>
+        <label class="vf">From (hex)<input id="hsFrom" value="0100"></label><label class="vf">To (hex)<input id="hsTo" value="01FF"></label></div>
+      <div class="row" style="margin-top:8px"><button class="btn primary" type="button" id="hScanIds">Scan IDs</button><button class="btn" type="button" id="hClearRes">Clear results</button></div>
+      <div id="hResults" style="margin-top:8px;max-height:320px;overflow:auto"></div>
+      <h3 style="font-size:13px;margin:14px 0 6px">Live watch</h3><div id="hWatch"></div></div>
+    <div class="card" style="margin-top:14px"><h2>3 · My custom PIDs</h2><div id="hCustom"></div></div>
+  </section>
+
+  <!-- EXPORT & SYNC -->
+  <section id="export">
+    <div class="grid g-cards">
+      <div class="card"><h2>Health report</h2><p class="muted" style="margin-top:0">Vehicle, trouble codes with fixes, readiness, battery, trips and a live snapshot. Print it or save as PDF to share with a mechanic.</p>
+        <button class="btn primary" type="button" id="expReport">📄 Create report</button></div>
+      <div class="card"><h2>Export data</h2><p class="muted" style="margin-top:0">Files for Excel / Google Sheets or backup.</p>
+        <div class="row"><button class="btn" type="button" id="expTripsCsv">Trips (CSV)</button><button class="btn" type="button" id="expJson">Everything (JSON)</button><button class="btn" type="button" id="csvBtn2">Last 2 min live data (CSV)</button></div></div>
+      <div class="card" style="grid-column:1/-1"><h2>☁ Google Sheets backup</h2><div id="syncBox"></div></div>
+    </div>
+  </section>
+
   <!-- CONSOLE -->
   <section id="console">
     <div class="card">
@@ -391,8 +463,8 @@ dialog::backdrop{background:rgba(0,0,0,.6)}
 <div id="tip"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <!-- ?v= busts browser caches when the app is updated -->
-<script src="obd-engine.js?v=7"></script>
-<script src="obd-demo.js?v=7"></script>
+<script src="obd-engine.js?v=11"></script>
+<script src="obd-demo.js?v=11"></script>
 <dialog id="infoDlg"><form method="dialog">
   <div id="infoBody"></div>
   <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="btn primary" value="ok">Close</button></div>
@@ -617,10 +689,10 @@ function makeGauge(svg, o) {
 // ------------------------------------------------------------------ vehicle profiles ("My vehicles")
 // Everything vehicle-specific lives here: names, gauge ranges, idle range, OBD protocol, odometer calibration.
 const VTYPES = {
-  car:     {label: "Car",       icon: "🚗", rpmMax: 8000,  redline: 6500, speedMax: 220, idleMin: 600,  idleMax: 900},
-  diesel:  {label: "Car (diesel)", icon: "🚙", rpmMax: 6000, redline: 4500, speedMax: 200, idleMin: 700, idleMax: 950},
-  bike:    {label: "Motorcycle", icon: "🏍", rpmMax: 12000, redline: 9500, speedMax: 200, idleMin: 1100, idleMax: 1700},
-  scooter: {label: "Scooter",   icon: "🛵", rpmMax: 10000, redline: 8000, speedMax: 120, idleMin: 1400, idleMax: 2000},
+  car:     {label: "Car",       icon: "🚗", rpmMax: 8000,  redline: 6500, speedMax: 220, idleMin: 600,  idleMax: 900, cylinders: 4, engineCc: 1500},
+  diesel:  {label: "Car (diesel)", icon: "🚙", rpmMax: 6000, redline: 4500, speedMax: 200, idleMin: 700, idleMax: 950, cylinders: 4, engineCc: 1500},
+  bike:    {label: "Motorcycle", icon: "🏍", rpmMax: 12000, redline: 9500, speedMax: 200, idleMin: 1100, idleMax: 1700, cylinders: 1, engineCc: 350},
+  scooter: {label: "Scooter",   icon: "🛵", rpmMax: 10000, redline: 8000, speedMax: 120, idleMin: 1400, idleMax: 2000, cylinders: 1, engineCc: 125},
 };
 const PROTOCOLS = [["0", "Auto-detect (recommended)"], ["6", "CAN 11-bit 500k: most cars 2008+"], ["7", "CAN 29-bit 500k"],
   ["8", "CAN 11-bit 250k"], ["9", "CAN 29-bit 250k"], ["5", "KWP2000 fast init (K-line): many bikes, older Asian cars"],
@@ -632,7 +704,7 @@ const vstore = {
 };
 let VEHICLES = vstore.get("list", []), ACTIVE = vstore.get("active", null);
 const newVehicle = (type = "car", extra = {}) => ({id: "v" + Date.now().toString(36), type, make: "", model: "", year: "", edition: "",
-  vin: "", protocol: "0", ...Object.fromEntries(["rpmMax", "redline", "speedMax", "idleMin", "idleMax"].map(k => [k, VTYPES[type][k]])), ...extra});
+  vin: "", protocol: "0", ...Object.fromEntries(["rpmMax", "redline", "speedMax", "idleMin", "idleMax", "cylinders", "engineCc"].map(k => [k, VTYPES[type][k]])), ...extra});
 if (!VEHICLES.length) {
   // first run: a generic car profile until the user fills it in (the wizard opens once connected or on tap)
   VEHICLES = [newVehicle("car")]; ACTIVE = VEHICLES[0].id; vstore.set("list", VEHICLES); vstore.set("active", ACTIVE);
@@ -1008,6 +1080,7 @@ function render() {
     const b = el.querySelector(".bar i"); if (b && v != null) b.style.width = Math.max(0, Math.min(100, (v - m[3]) / (m[4] - m[3]) * 100)) + "%"; });
   drawChart(); renderDiag(); healthChecks(); renderData(); renderVehicle(); renderSymptoms();
   renderBattery(); renderM06(); renderIUPR(); renderOdo();
+  for (const f of (window.RENDER_HOOKS || [])) { try { f(); } catch (e) { console.error(e); } }
   const w = S.write_armed;
   $("#modePill").className = "pill mode" + (w ? " write" : "");
   $("#modePill").textContent = w ? `⚠ WRITE ARMED · ${S.write_remaining}s` : "🔒 READ-ONLY";
@@ -1105,8 +1178,9 @@ $("#filter").oninput = renderData;
 $("#csvBtn").onclick = () => {
   const H = S?.history || [], hdr = "time,rpm,speed_kmh,coolant_c,load_pct,throttle_pct\n";
   const csv = hdr + H.map(p => [new Date(p.t * 1000).toISOString(), p.rpm, p.speed, p.coolant, p.load, p.throttle].join(",")).join("\n");
-  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], {type: "text/csv"})); a.download = "obd-history.csv"; a.click();
+  window.saveFile("obd-history.csv", "text/csv", csv);   // download in browsers, share sheet in the Android app
 };
+document.addEventListener("click", e => { if (e.target.closest("#csvBtn2")) $("#csvBtn").click(); });
 const con = $("#conOut");
 const log = t => { con.textContent += t + "\n"; con.scrollTop = con.scrollHeight; };
 async function sendCon(cmd) {
@@ -1494,7 +1568,9 @@ function editVehicle(id, prefill = {}) {
       ${f("year", "Year", "number", "2024")}${f("edition", "Variant", "text", "optional")}
       ${f("redline", "Red zone from (rpm)", "number")}${f("rpmMax", "Rev gauge max (rpm)", "number")}
       ${f("idleMin", "Warm idle from (rpm)", "number")}${f("idleMax", "Warm idle to (rpm)", "number")}
-      ${f("speedMax", "Speed gauge max (km/h)", "number")}<span></span>
+      ${f("speedMax", "Speed gauge max (km/h)", "number")}${f("cylinders", "Cylinders", "number")}
+      ${f("engineCc", "Engine size (cc)", "number")}${f("fuelPrice", "Fuel price per litre", "number", "100")}
+      ${f("currency", "Currency symbol", "text", "₹")}<label class="vf">Record GPS route<select data-f="gps"><option value="on" ${v.gps === false ? "" : "selected"}>On</option><option value="off" ${v.gps === false ? "selected" : ""}>Off</option></select></label>
       <label class="vf" style="grid-column:1/-1">OBD protocol
         <select data-f="protocol">
         ${PROTOCOLS.map(([n, l]) => `<option value="${n}" ${String(v.protocol) === n ? "selected" : ""}>${l}</option>`).join("")}</select></label>
@@ -1507,7 +1583,7 @@ function editVehicle(id, prefill = {}) {
   body.onchange = e => {           // switching type refreshes the rpm/speed defaults
     if (e.target.name !== "vtype") return;
     const t = VTYPES[e.target.value];
-    ["rpmMax", "redline", "speedMax", "idleMin", "idleMax"].forEach(k => body.querySelector(`[data-f="${k}"]`).value = t[k]);
+    ["rpmMax", "redline", "speedMax", "idleMin", "idleMax", "cylinders", "engineCc"].forEach(k => body.querySelector(`[data-f="${k}"]`).value = t[k]);
   };
   body.onclick = e => {
     if (e.target.closest("[data-del]")) {
@@ -1517,6 +1593,7 @@ function editVehicle(id, prefill = {}) {
     }
     if (!e.target.closest("[data-save]")) return;
     body.querySelectorAll("[data-f]").forEach(i => v[i.dataset.f] = i.type === "number" ? (+i.value || 0) : i.value.trim());
+    v.gps = v.gps !== "off";
     v.type = body.querySelector('input[name="vtype"]:checked')?.value || v.type;
     if (v.redline > v.rpmMax) v.rpmMax = Math.ceil(v.redline / 1000) * 1000 + 1000;
     if (isNew) VEHICLES.push(v); else VEHICLES = VEHICLES.map(x => x.id === v.id ? v : x);
@@ -1537,7 +1614,7 @@ function checkVin() {
   if (known) { if (known.id !== ACTIVE) { ACTIVE = known.id; saveVehicles(); applyVehicle(); toast(`🔁 Recognised <b>${esc(vehName(known))}</b> from its VIN`, true, 4000); } return; }
   if (!cur.vin) {                // first connection for this profile: adopt the VIN, fill obvious blanks
     cur.vin = vin; if (!cur.make && brand) cur.make = brand; if (!cur.year && vinYear(vin)) cur.year = String(vinYear(vin));
-    const asType = t => Object.assign(cur, {type: t, ...Object.fromEntries(["rpmMax", "redline", "speedMax", "idleMin", "idleMax"].map(k => [k, VTYPES[t][k]]))});
+    const asType = t => Object.assign(cur, {type: t, ...Object.fromEntries(["rpmMax", "redline", "speedMax", "idleMin", "idleMax", "cylinders", "engineCc"].map(k => [k, VTYPES[t][k]]))});
     if (vstore.get("needsSetup", false) && BIKE_WMI.has(vin.slice(0, 3))) asType("bike");
     else if (diesel && cur.type === "car") asType("diesel");
     saveVehicles(); applyVehicle();
@@ -1551,5 +1628,9 @@ async function loadLog() { const t = await ENGINE.writelog(); $("#wlog").textCon
 // offline support when hosted over https (GitHub Pages)
 if ("serviceWorker" in navigator && location.protocol === "https:" && !OBD.isNativeApp()) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>
+<script src="trips.js?v=11"></script>
+<script src="hood.js?v=11"></script>
+<script src="hidden.js?v=11"></script>
+<script src="extras.js?v=11"></script>
 </body>
 </html>

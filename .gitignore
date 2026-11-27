@@ -2,6 +2,7 @@
 settings.json
 battery_tests.json
 write_log.txt
+trips.json
 .claude/
 __pycache__/
 # Android build output (the dashboard is copied into assets at build time)
