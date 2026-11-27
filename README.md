@@ -42,7 +42,10 @@ It started as a dashboard for a 2024 Hyundai Creta and now works with most cars,
 - **Battery health:** charge %, charging-system check, and a cranking test that measures the voltage dip on start-up.
 - **Trips:** an automatic logbook with GPS start/end and route, distance, duration, fuel used, **mileage (km/L)**, **cost**, average and top speed, max engine temperature, idle time and harsh driving.
 - **Driving coach:** clutch, gear-shift, acceleration and braking technique, with a score and tips for every trip.
-- **Under the hood (3D):** a realistic WebGL X-ray car with a mechanically animated engine (crankshaft, rods, pistons, spark plugs firing in order), plus cooling, exhaust heat, airflow and fuel flow, and live labels.
+- **Under the hood (3D):** a sculpted Creta-style SUV (Robust Emerald Pearl by default, plus the other Creta colours) that you can spin 360°. Views:
+  - **Interior:** the driver's seat, with live panoramic screens, ambient lighting and pedals that move with throttle and braking.
+  - **Engine:** the bonnet opens on the engine bay, with a coolant tank whose level follows temperature, brake fluid, washer fluid and drive shafts.
+  - **Cutaway / X-ray:** a mechanically animated engine (crankshaft, rods, pistons, spark plugs firing in order), plus cooling, exhaust heat, airflow, fuel flow and live labels.
 - **Cylinder health,** **alerts** (overheating, low battery, not charging, red zone, speed limit, new codes) and **0–60 / 0–100 / 40–80 timers**.
 - **Hidden data:** discover the modules in your car, read their part and software numbers, find hidden values, and make your own custom PIDs. All read-only.
 - **Reports & export:** a printable / PDF health report for your mechanic, trips as CSV, everything as JSON, and **Google Sheets** backup.
@@ -100,7 +103,7 @@ Open **http://127.0.0.1:8765**. Find your COM port in *Device Manager → Ports 
 | **Vehicle & features** | VIN, ECU, calibration IDs, what your car exposes, odometer calibration. |
 | **Console** | Send raw *read-only* OBD requests. Anything that could change the car is blocked, with an explanation. |
 | **Trips** | Current trip, totals, past trips, driving coach, performance timers, alerts. |
-| **Under the hood** | The 3D X-ray car and engine, readings by system, cylinder health. |
+| **Under the hood** | The 3D car (exterior, interior and engine bay views), readings by system, cylinder health. |
 | **Hidden data** | Module scan, ECU identification, ID scanner + live byte watch, custom PIDs. |
 | **Export & sync** | Health report (PDF/print), CSV/JSON export, restore from backup, Google Sheets. |
 | **Features & write mode** | Every feature with its risk level, and the guarded "clear codes" action. |
