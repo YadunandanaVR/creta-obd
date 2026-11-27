@@ -26,7 +26,9 @@ jobs:
       - name: Bundle the dashboard into the app
         run: |
           mkdir -p android/app/src/main/assets/www
-          cp index.html obd-engine.js obd-demo.js manifest.json icon.svg icon-192.png icon-512.png android/app/src/main/assets/www/
+          cp index.html *.js manifest.json icon.svg icon-192.png icon-512.png android/app/src/main/assets/www/
+          rm -f android/app/src/main/assets/www/sw.js   # service worker not used inside the app
+          ls android/app/src/main/assets/www/
 
       # Optional: stable signing key so new versions install over old ones.
       # Add repo secrets ANDROID_KEYSTORE_B64 (base64 .jks, alias "creta-obd") and ANDROID_KEYSTORE_PASSWORD.
