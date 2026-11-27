@@ -13,6 +13,8 @@ import {EffectComposer} from "three/addons/postprocessing/EffectComposer.js";
 import {RenderPass} from "three/addons/postprocessing/RenderPass.js";
 import {UnrealBloomPass} from "three/addons/postprocessing/UnrealBloomPass.js";
 import {OutputPass} from "three/addons/postprocessing/OutputPass.js";
+import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
+import {DRACOLoader} from "three/addons/loaders/DRACOLoader.js";
 
 const css = `
 .h3d{position:relative;height:430px;border-radius:12px;overflow:hidden;background:var(--panel2);touch-action:none}
@@ -29,6 +31,7 @@ const css = `
 .h3d-lbl b{font-variant-numeric:tabular-nums}
 .h3d-lbl.warn{border-color:var(--warn)} .h3d-lbl.bad{border-color:var(--bad);animation:h3dpulse 1s infinite alternate}
 @keyframes h3dpulse{to{box-shadow:0 0 14px var(--bad)}}
+.h3d-menu{display:flex;gap:4px;flex-wrap:wrap;width:100%}.h3d-menu[hidden]{display:none}
 .h3d-note{position:absolute;left:10px;bottom:8px;font-size:11px;color:var(--muted);z-index:3;pointer-events:none}
 @media (max-width:600px){.h3d{height:380px}.h3d-paint{margin-left:0}.h3d-bar{gap:4px}.h3d-bar button{padding:4px 8px;font-size:11px}.h3d-paint i{width:15px;height:15px}.h3d-lbl{font-size:10.5px;padding:2px 6px}}`;
 document.head.appendChild(Object.assign(document.createElement("style"), {textContent: css}));
@@ -149,6 +152,17 @@ M.grille = new THREE.MeshStandardMaterial({metalness: 0.6, roughness: 0.38, alph
   for (let y = 0; y < 10; y++) for (let x = 0; x < 31; x++) { const cx = x * 17 + (y % 2) * 8.5, cy = 6 + y * 17;
     g.beginPath(); g.moveTo(cx, cy - 7); g.lineTo(cx + 7, cy); g.lineTo(cx, cy + 7); g.lineTo(cx - 7, cy); g.closePath(); g.fillStyle = "#1b1e23"; g.fill(); g.strokeStyle = "#6b727b"; g.lineWidth = 1.3; g.stroke(); }
   g.restore(); g.strokeStyle = "#8e959e"; g.lineWidth = 4; g.beginPath(); g.roundRect(3, 3, w - 6, h - 6, 33); g.stroke(); })});
+// Creta-style grille: wide trapezoid, dark chrome frame, parametric jewel pattern
+M.grilleCreta = new THREE.MeshStandardMaterial({metalness: 0.75, roughness: 0.3, alphaTest: 0.5, map: canvasTex(560, 184, (g, w, h) => {
+  const trap = i => { g.beginPath(); g.moveTo(10 + i, 6 + i); g.lineTo(w - 10 - i, 6 + i); g.lineTo(w - 46 - i, h - 6 - i); g.lineTo(46 + i, h - 6 - i); g.closePath(); };
+  g.fillStyle = "#050607"; trap(0); g.fill(); g.save(); trap(0); g.clip();
+  for (let y = 0; y < 12; y++) for (let x = 0; x < 24; x++) { const cx = x * 24 + (y % 2) * 12, cy = 4 + y * 16, k = (x + y) % 3;
+    g.beginPath(); g.moveTo(cx - 10, cy); g.lineTo(cx, cy - 7); g.lineTo(cx + 10, cy); g.lineTo(cx, cy + 7); g.closePath();
+    g.fillStyle = k ? "#17191d" : "#2b2f35"; g.fill(); g.strokeStyle = "#4b5058"; g.lineWidth = 1; g.stroke(); }
+  g.restore(); g.strokeStyle = "#3a3f46"; g.lineWidth = 7; trap(3); g.stroke(); })});
+M.leather.map = canvasTex(256, 256, (g, w, h) => { g.fillStyle = "#4a4b4f"; g.fillRect(0, 0, w, h); g.fillStyle = "#2a2b2e";       // perforated (ventilated) leatherette
+  for (let y = 4; y < h; y += 9) for (let x = 4 + (y % 18 ? 4 : 0); x < w; x += 9) { g.beginPath(); g.arc(x, y, 1.6, 0, 7); g.fill(); } }, [2, 2]);
+M.leather.color.set(0x3a3b3e);
 const DEFAULT_PAINT = "#1f5245";        // Robust Emerald Pearl (approximation)
 const paintOf = () => { const p = VEH().paint; return !p || p === "#0f4d3c" ? DEFAULT_PAINT : p; };
 const paint = new THREE.MeshPhysicalMaterial({color: DEFAULT_PAINT, metalness: 0.5, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.03, envMapIntensity: 1.3,
@@ -184,16 +198,20 @@ const blob = mesh(new THREE.PlaneGeometry(5.2, 2.6), new THREE.MeshBasicMaterial
 blob.rotation.x = -Math.PI / 2; world.add(blob);
 
 // ------------------------------------------------------------------ car body: lofted SUV shell with Creta-like proportions
-// (length 4.36 m, width 1.8 m, height 1.65 m). Cross-sections are swept along x (+x = front, +z = right / driver side for India).
+// (Creta: length 4.33 m, width 1.79 m, height 1.635 m, wheelbase 2.61 m, 215/55 R18). Cross-sections are swept along x (+x = front, +z = right / driver side for India).
 const car = new THREE.Group(); scene.add(car);
 const bodyG = new THREE.Group(), cabinG = new THREE.Group(), bay = new THREE.Group(); car.add(bodyG, cabinG, bay);
-const W = 0.9, LH = 2.25, XF = 2.18, XR = -2.18, WR = 0.47, ROOF = 1.61, DARK = 0.07;
+const W = 0.895, LH = 2.24, XF = 2.165, XR = -2.165, WR = 0.44, ROOF = 1.6, DARK = 0.07, AX = 1.305, WY = 0.36;
+const isCretaVeh = () => { const v = VEH(); return /creta/i.test(v.model || "") || (/hyundai/i.test(v.make || "") && !v.model); };
+let bodyMode = q("body") || "auto", CRETA = bodyMode === "creta" || (bodyMode === "auto" && isCretaVeh());
 const sstep = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const range = (a, b, n) => Array.from({length: n + 1}, (_, i) => a + (b - a) * i / n);
 const halfW = x => W * Math.pow(Math.max(0, 1 - Math.pow(Math.min(Math.abs(x) / LH, 1), 6)), 1 / 6);
 const noseX = z => Math.min(XF, LH * Math.pow(Math.max(0, 1 - Math.pow(Math.min(Math.abs(z) / W, 0.999), 6)), 1 / 6));
-const ySill = x => 0.33 + 0.09 * sstep(1.85, XF, x) + 0.11 * sstep(-1.85, XR, x);
-const yArch = x => { let y = ySill(x); for (const xw of [1.35, -1.35]) { const d = x - xw; if (Math.abs(d) < WR) y = Math.max(y, 0.41 + Math.sqrt(WR * WR - d * d)); } return y; };
+const ySill = x => 0.28 + 0.11 * sstep(1.85, XF, x) + 0.14 * sstep(-1.85, XR, x);
+// wheel-arch opening: squarer (superellipse) on the Creta, round on the generic body
+const archY = d => { const t = Math.min(1, Math.abs(d) / WR), e = CRETA ? 4 : 2; return WY + (WR + 0.03) * Math.pow(1 - Math.pow(t, e), 1 / e); };
+const yArch = x => { let y = ySill(x); for (const xw of [AX, -AX]) { const d = x - xw; if (Math.abs(d) < WR) y = Math.max(y, archY(d)); } return y; };
 const yBelt = x => x >= 0.95 ? 1.10 - 0.1 * (x - 0.95) / 1.23 - 0.09 * Math.pow(Math.max(0, (x - 1.92) / 0.26), 2)
   : x >= -1.95 ? 1.10 + 0.06 * (0.95 - x) / 2.9 : 1.16 - 0.06 * Math.pow(Math.min(1, (-1.95 - x) / 0.23), 2);
 const yRoof = x => { const b = yBelt(x);
@@ -231,47 +249,68 @@ function loft(xs, ringAt, {colors = false, caps = [false, false]} = {}) {
 }
 const add = (parent, o) => { parent.add(o); return o; };
 const tubeOn = (parent, pts, r, mat, seg = 48) => add(parent, tube(pts, r, mat, false, seg));
-const bodyGeo = loft(range(XR, XF, 150), x => ringFull(bodyRight(x)), {colors: true, caps: [true, true]});
-const body = add(bodyG, mesh(bodyGeo, paintV));
-const edges = add(bodyG, new THREE.LineSegments(new THREE.EdgesGeometry(bodyGeo, 35), edgeMat));
-// bonnet: its own panel hinged at the windscreen so it can open in the engine view
-const hoodG = new THREE.Group(); hoodG.position.set(0.95, yBelt(0.95), 0); bodyG.add(hoodG);
-const hoodGeo = loft(range(0.95, XF, 40), x => ringFull(topRight(x, 0.035)), {caps: [false, true]}); hoodGeo.translate(-0.95, -yBelt(0.95), 0);
-hoodG.add(mesh(hoodGeo, paint));
-add(bodyG, mesh(loft(range(XR, -2.05, 6), x => ringFull(topRight(x, 0.025)), {caps: [true, false]}), paint));          // tailgate top
-const glass = add(bodyG, mesh(loft(range(-2.12, 0.95, 90), x => ringFull(cabinRight(x))), M.glass, 0, 0, 0, false));
-add(bodyG, mesh(loft(range(-1.84, 0.17, 50), x => ringFull(roofRight(x)), {caps: [true, true]}), paint));               // roof
-add(bodyG, mesh(loft(range(-0.95, 0.0, 12), x => { const yr = yRoof(x), c = 0.03; return ringFull([[0, yr + c + 0.012], [0.39, yr + c * 0.8 + 0.011], [0.45, yr + c * 0.65 + 0.01]]); }), M.sun, 0, 0, 0, false)); // panoramic sunroof
-for (const s of [-1, 1]) {
-  const wt = x => halfW(x) * 0.79 + 0.004, wb = x => halfW(x) * 0.95;
-  tubeOn(bodyG, range(0.15, 0.95, 16).map(x => [x, yRoof(x) + 0.004, s * wt(x)]), 0.022, M.trim);                     // A-pillar
-  tubeOn(bodyG, range(-2.12, -1.82, 8).map(x => [x, yRoof(x) + 0.004, s * wt(x)]), 0.024, M.trim);                    // D-pillar
-  for (const [x, r] of [[-0.42, 0.03], [-1.5, 0.05]]) { const yb = yBelt(x), yr = yRoof(x), w = halfW(x);              // B and C pillars
-    tubeOn(bodyG, [[x, yb + 0.02, s * (wb(x) + 0.004)], [x, yb + (yr - yb) * 0.5, s * ((w * 0.95 + w * 0.79) / 2 + 0.016)], [x, yr - 0.03, s * (w * 0.79 + 0.008)]], r, M.trim, 12); }
-  tubeOn(bodyG, range(-1.95, 0.92, 40).map(x => [x, yBelt(x) + 0.004, s * (wb(x) + 0.004)]), 0.007, M.chrome, 80);   // chrome belt line
-  tubeOn(bodyG, range(-1.72, 0.02, 30).map(x => [x, yRoof(x) + 0.075, s * halfW(x) * 0.7]), 0.012, M.rail, 60);       // roof rails
-  for (const x of [0.0, -0.75, -1.7]) bodyG.add(mesh(new THREE.BoxGeometry(0.06, 0.06, 0.03), M.rail, x, yRoof(x) + 0.05, s * halfW(x) * 0.7));
-  for (const x of [0.9, -0.42, -1.44]) tubeOn(bodyG, bodyRight(x).slice(6).map(([z, y]) => [x, y, s * (z + 0.003)]), 0.0035, M.seam, 16); // door shut lines
-  for (const x of [0.22, -1.0]) { const h = mesh(new THREE.CapsuleGeometry(0.012, 0.08, 4, 8), M.chrome, x, yBelt(x) - 0.1, s * (halfW(x) * 0.99 + 0.012)); h.rotation.z = Math.PI / 2; bodyG.add(h); }
-  for (const xw of [1.35, -1.35]) { const a = mesh(new THREE.TorusGeometry(WR + 0.02, 0.042, 8, 40, Math.PI + 0.36), M.clad, xw, 0.41, s * halfW(xw) * 0.985); a.rotation.z = -0.18; bodyG.add(a); }
-  // mirror on a stalk, with an indicator strip
-  const mg = new THREE.Group(); mg.position.set(0.8, yBelt(0.8) + 0.1, s * (halfW(0.8) * 0.95 + 0.11)); bodyG.add(mg);
-  mg.add(mesh(new RoundedBoxGeometry(0.11, 0.11, 0.2, 3, 0.04), paint), mesh(new THREE.BoxGeometry(0.05, 0.03, 0.1), M.trim, -0.01, -0.06, -s * 0.09));
-  mg.add(mesh(new THREE.BoxGeometry(0.01, 0.014, 0.14), M.amber, 0.055, -0.03, s * 0.01, false));
-  // headlamp cluster (quad LED) and the vertical tail-lamp blades
-  const zl = s * 0.64, xn = noseX(zl), slope = (noseX(zl + 0.01) - noseX(zl - 0.01)) / 0.02;
-  const hl = new THREE.Group(); hl.position.set(xn - 0.012, 0.74, zl); hl.rotation.y = Math.atan(slope); bodyG.add(hl);
-  hl.add(mesh(new RoundedBoxGeometry(0.05, 0.13, 0.24, 2, 0.02), M.trim, 0, 0, 0, false));
-  for (let i = 0; i < 4; i++) hl.add(mesh(new THREE.BoxGeometry(0.02, 0.035, 0.035), M.head, 0.022, 0.025 - (i > 1) * 0.05, -0.05 + (i % 2) * 0.1, false));
-  tubeOn(bodyG, range(1.12, 0.9, 6).map(y => [-noseX(s * 0.8) - 0.004, y, s * 0.8]), 0.013, M.tail, 12);
-  bodyG.add(mesh(new THREE.BoxGeometry(0.01, 0.03, 0.06), M.tail, XR - 0.004, 0.5, s * 0.7, false));                  // rear reflectors
+let glass, hoodG;
+function buildBody() {
+  bodyG.clear();
+  const bodyGeo = loft(range(XR, XF, 150), x => ringFull(bodyRight(x)), {colors: true, caps: [true, true]});
+  add(bodyG, mesh(bodyGeo, paintV));
+  add(bodyG, new THREE.LineSegments(new THREE.EdgesGeometry(bodyGeo, 35), edgeMat));
+  // bonnet: its own panel hinged at the windscreen so it can open in the engine view
+  hoodG = new THREE.Group(); hoodG.position.set(0.95, yBelt(0.95), 0); bodyG.add(hoodG);
+  const hoodGeo = loft(range(0.95, XF, 40), x => ringFull(topRight(x, 0.035)), {caps: [false, true]}); hoodGeo.translate(-0.95, -yBelt(0.95), 0);
+  hoodG.add(mesh(hoodGeo, paint));
+  add(bodyG, mesh(loft(range(XR, -2.05, 6), x => ringFull(topRight(x, 0.025)), {caps: [true, false]}), paint));          // tailgate top
+  glass = add(bodyG, mesh(loft(range(-2.12, 0.95, 90), x => ringFull(cabinRight(x))), M.glass, 0, 0, 0, false));
+  add(bodyG, mesh(loft(range(-1.84, 0.17, 50), x => ringFull(roofRight(x)), {caps: [true, true]}), paint));               // roof
+  add(bodyG, mesh(loft(range(-0.95, 0.0, 12), x => { const yr = yRoof(x), c = 0.03; return ringFull([[0, yr + c + 0.012], [0.39, yr + c * 0.8 + 0.011], [0.45, yr + c * 0.65 + 0.01]]); }), M.sun, 0, 0, 0, false)); // panoramic sunroof
+  for (const s of [-1, 1]) {
+    const wt = x => halfW(x) * 0.79 + 0.004, wb = x => halfW(x) * 0.95;
+    tubeOn(bodyG, range(0.15, 0.95, 16).map(x => [x, yRoof(x) + 0.004, s * wt(x)]), 0.022, M.trim);                     // A-pillar
+    tubeOn(bodyG, range(-2.12, -1.82, 8).map(x => [x, yRoof(x) + 0.004, s * wt(x)]), 0.024, M.trim);                    // D-pillar
+    for (const [x, r] of [[-0.42, 0.03], [-1.5, 0.05]]) { const yb = yBelt(x), yr = yRoof(x), w = halfW(x);              // B and C pillars
+      tubeOn(bodyG, [[x, yb + 0.02, s * (wb(x) + 0.004)], [x, yb + (yr - yb) * 0.5, s * ((w * 0.95 + w * 0.79) / 2 + 0.016)], [x, yr - 0.03, s * (w * 0.79 + 0.008)]], r, M.trim, 12); }
+    tubeOn(bodyG, range(-1.95, 0.92, 40).map(x => [x, yBelt(x) + 0.004, s * (wb(x) + 0.004)]), 0.007, M.chrome, 80);   // chrome belt line
+    tubeOn(bodyG, range(-1.72, 0.02, 30).map(x => [x, yRoof(x) + 0.075, s * halfW(x) * 0.7]), 0.012, M.rail, 60);       // roof rails
+    for (const x of [0.0, -0.75, -1.7]) bodyG.add(mesh(new THREE.BoxGeometry(0.06, 0.06, 0.03), M.rail, x, yRoof(x) + 0.05, s * halfW(x) * 0.7));
+    for (const x of [0.9, -0.42, -1.44]) tubeOn(bodyG, bodyRight(x).slice(6).map(([z, y]) => [x, y, s * (z + 0.003)]), 0.0035, M.seam, 16); // door shut lines
+    for (const x of [0.22, -1.0]) { const h = mesh(new THREE.CapsuleGeometry(0.012, 0.08, 4, 8), M.chrome, x, yBelt(x) - 0.1, s * (halfW(x) * 0.99 + 0.012)); h.rotation.z = Math.PI / 2; bodyG.add(h); }
+    for (const xw of [AX, -AX]) { const e = WR + 0.025; tubeOn(bodyG, [[xw - e, ySill(xw - e) + 0.03], ...range(-0.97, 0.97, 26).map(t => [xw + t * e, archY(t * WR) + 0.018]), [xw + e, ySill(xw + e) + 0.03]].map(([x, y]) => [x, y, s * halfW(x) * 0.992]), CRETA ? 0.05 : 0.04, M.clad, 60); }  // arch cladding
+    // mirror on a stalk, with an indicator strip
+    const mg = new THREE.Group(); mg.position.set(0.8, yBelt(0.8) + 0.1, s * (halfW(0.8) * 0.95 + 0.11)); bodyG.add(mg);
+    mg.add(mesh(new RoundedBoxGeometry(0.11, 0.11, 0.2, 3, 0.04), paint), mesh(new THREE.BoxGeometry(0.05, 0.03, 0.1), M.trim, -0.01, -0.06, -s * 0.09));
+    mg.add(mesh(new THREE.BoxGeometry(0.01, 0.014, 0.14), M.amber, 0.055, -0.03, s * 0.01, false));
+    // headlamp cluster (quad LED) and the vertical tail-lamp blades
+    const zl = s * 0.64, xn = noseX(zl), slope = (noseX(zl + 0.01) - noseX(zl - 0.01)) / 0.02;
+    const hl = new THREE.Group(); hl.position.set(xn - 0.012, 0.74, zl); hl.rotation.y = Math.atan(slope); bodyG.add(hl);
+    hl.add(mesh(new RoundedBoxGeometry(0.05, 0.13, 0.24, 2, 0.02), M.trim, 0, 0, 0, false));
+    for (let i = 0; i < 4; i++) hl.add(mesh(new THREE.BoxGeometry(0.02, 0.035, 0.035), M.head, 0.022, 0.025 - (i > 1) * 0.05, -0.05 + (i % 2) * 0.1, false));
+    tubeOn(bodyG, range(1.12, 0.9, 6).map(y => [-noseX(s * 0.8) - 0.004, y, s * 0.8]), 0.013, M.tail, 12);
+    bodyG.add(mesh(new THREE.BoxGeometry(0.01, 0.03, 0.06), M.tail, XR - 0.004, 0.5, s * 0.7, false));                  // rear reflectors
+  }
+  add(bodyG, tube(range(-0.84, 0.84, 30).map(z => [noseX(z) + 0.006, yBelt(noseX(z)) - 0.03, z]), 0.011, M.drl, false, 60));  // full-width DRL bar
+  tubeOn(bodyG, range(-0.84, 0.84, 30).map(z => [-noseX(z) - 0.006, yBelt(-noseX(z)) - 0.05, z]), 0.013, M.tail, 60);                       // connected tail-lamp bar
+  const grille = CRETA ? mesh(new THREE.PlaneGeometry(1.1, 0.36), M.grilleCreta, XF + 0.004, 0.69, 0, false) : mesh(new THREE.PlaneGeometry(0.98, 0.32), M.grille, XF + 0.004, 0.71, 0, false); grille.rotation.y = Math.PI / 2; bodyG.add(grille);
+  bodyG.add(mesh(new RoundedBoxGeometry(0.03, 0.06, 0.86, 2, 0.015), M.skid, XF + 0.01, 0.44, 0), mesh(new RoundedBoxGeometry(0.03, 0.05, 1.1, 2, 0.015), M.skid, XR - 0.01, 0.5, 0));
+  bodyG.add(mesh(new THREE.BoxGeometry(0.008, 0.1, 0.5), M.plate, XF + 0.012, 0.54, 0), mesh(new THREE.BoxGeometry(0.008, 0.1, 0.5), M.plate, XR - 0.008, 0.78, 0));
+  bodyG.add(mesh(new RoundedBoxGeometry(0.2, 0.035, 1.25, 2, 0.015), M.trim, -1.86, ROOF + 0.035, 0));                  // roof spoiler
+  if (CRETA) cretaDetails();
 }
-const grilleStrip = add(bodyG, tube(range(-0.84, 0.84, 30).map(z => [noseX(z) + 0.006, yBelt(noseX(z)) - 0.03, z]), 0.011, M.drl, false, 60));  // full-width DRL bar
-tubeOn(bodyG, range(-0.84, 0.84, 30).map(z => [-noseX(z) - 0.006, yBelt(-noseX(z)) - 0.05, z]), 0.013, M.tail, 60);                       // connected tail-lamp bar
-const grille = mesh(new THREE.PlaneGeometry(0.98, 0.32), M.grille, XF + 0.004, 0.71, 0, false); grille.rotation.y = Math.PI / 2; bodyG.add(grille);
-bodyG.add(mesh(new RoundedBoxGeometry(0.03, 0.06, 0.86, 2, 0.015), M.skid, XF + 0.01, 0.44, 0), mesh(new RoundedBoxGeometry(0.03, 0.05, 1.1, 2, 0.015), M.skid, XR - 0.01, 0.5, 0));
-bodyG.add(mesh(new THREE.BoxGeometry(0.008, 0.1, 0.5), M.plate, XF + 0.012, 0.54, 0), mesh(new THREE.BoxGeometry(0.008, 0.1, 0.5), M.plate, XR - 0.008, 0.78, 0));
-bodyG.add(mesh(new RoundedBoxGeometry(0.2, 0.035, 1.25, 2, 0.015), M.trim, -1.86, ROOF + 0.035, 0));                  // roof spoiler
+
+// Creta 2024 design cues (from published specs): L-shaped LED DRL blades, connected tail lamps, shark-fin antenna, bonnet creases, rear wiper
+function cretaDetails() {
+  for (const s of [-1, 1]) {
+    const z = s * 0.82, x = noseX(z);
+    tubeOn(bodyG, range(0, 1, 6).map(t => [noseX(z) + 0.006, yBelt(x) - 0.03 - t * 0.2, z]), 0.011, M.drl, 12);                       // DRL blades
+    tubeOn(bodyG, [[-noseX(s * 0.8) - 0.006, 0.9, s * 0.8], [-noseX(s * 0.6) - 0.006, 0.9, s * 0.6]], 0.012, M.tail, 8);               // tail-lamp "L"
+    const yh = x => yBelt(x) + 0.035 * 0.92 + 0.003 - yBelt(0.95);
+    hoodG.add(tube(range(1.0, 2.08, 16).map(x => [x - 0.95, yh(x), s * halfW(x) * 0.39]), 0.006, paint, false, 32));                   // bonnet creases
+  }
+  const fin = new THREE.Shape(); fin.moveTo(0.09, 0); fin.lineTo(-0.08, 0); fin.lineTo(-0.075, 0.06); fin.quadraticCurveTo(-0.02, 0.062, 0.09, 0);
+  const fg = new THREE.ExtrudeGeometry(fin, {depth: 0.035, bevelEnabled: true, bevelSize: 0.008, bevelThickness: 0.008, bevelSegments: 3}); fg.translate(0, 0, -0.0175);
+  bodyG.add(mesh(fg, M.trim, -1.66, yRoof(-1.66) + 0.035, 0));                                                                      // shark-fin antenna
+  const wip = mesh(new THREE.BoxGeometry(0.012, 0.014, 0.36), M.trim, -2.045, 1.35, 0.02); wip.rotation.x = 0.35; bodyG.add(wip);        // rear wiper
+}
+buildBody();
 
 // ------------------------------------------------------------------ interior (seen through the glass, and from the driver's seat)
 const leatherBox = (w, h, d, x, y, z, rz = 0) => { const m = mesh(new RoundedBoxGeometry(w, h, d, 3, Math.min(w, h, d) * 0.35), M.leather, x, y, z); m.rotation.z = rz; cabinG.add(m); return m; };
@@ -299,7 +338,17 @@ cabinG.add(mesh(new THREE.BoxGeometry(0.4, 0.02, 1.4), M.dash, -1.72, 1.08, 0), 
 const steer = new THREE.Group(); steer.position.set(0.38, 0.96, 0.38); steer.rotation.z = -0.35; cabinG.add(steer);
 const sw = new THREE.Group(); sw.rotation.y = Math.PI / 2; steer.add(sw);
 sw.add(mesh(new THREE.TorusGeometry(0.17, 0.02, 12, 48), M.leather), mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.04, 24), M.dash).rotateX(Math.PI / 2));
-for (const a of [0, Math.PI, -Math.PI / 2]) { const sp = new THREE.Group(); sp.rotation.z = a; sw.add(sp); sp.add(mesh(new THREE.BoxGeometry(0.12, 0.03, 0.015), M.dashTrim, 0.1, 0, 0)); }
+const spokes3 = new THREE.Group(), spokes4 = new THREE.Group(); sw.add(spokes3, spokes4);
+for (const [grp, angles] of [[spokes3, [0, Math.PI, -Math.PI / 2]], [spokes4, [0.25, Math.PI - 0.25, -Math.PI / 2 + 0.45, -Math.PI / 2 - 0.45]]])
+  for (const a of angles) { const sp = new THREE.Group(); sp.rotation.z = a; grp.add(sp); sp.add(mesh(new THREE.BoxGeometry(0.12, 0.028, 0.015), M.dashTrim, 0.1, 0, 0)); }
+// Creta cabin extras: 4-spoke wheel, Bose speaker grilles, dual-zone climate panel, wireless charger, sun visors, dashcam
+const cretaCab = new THREE.Group(); cabinG.add(cretaCab);
+const spk = new THREE.MeshStandardMaterial({color: 0x8a8f96, metalness: 0.8, roughness: 0.45});
+for (const s of [-1, 1]) for (const x of [0.55, -0.72]) cretaCab.add(mesh(new THREE.CylinderGeometry(0.065, 0.065, 0.01, 28), spk, x, 0.68, s * 0.805).rotateX(Math.PI / 2));
+cretaCab.add(mesh(new RoundedBoxGeometry(0.015, 0.07, 0.36, 2, 0.006), M.trim, 0.515, 0.875, 0));
+for (const z of [-0.13, 0.13]) cretaCab.add(mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.02, 24), M.dashTrim, 0.505, 0.875, z).rotateZ(Math.PI / 2));
+cretaCab.add(mesh(new THREE.BoxGeometry(0.12, 0.006, 0.1), M.trim, 0.43, 0.658, 0), mesh(new THREE.BoxGeometry(0.03, 0.03, 0.05), M.trim, 0.44, 1.53, 0.06));
+for (const z of [-0.38, 0.38]) cretaCab.add(mesh(new THREE.BoxGeometry(0.17, 0.015, 0.4), M.headliner, 0.22, 1.57, z));
 steer.add(mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.25, 12), M.dash, 0.13, 0, 0).rotateZ(Math.PI / 2));
 // pedals hinge at the top so they swing forward with throttle / braking
 const pedal = (z, w) => { const p = new THREE.Group(); p.position.set(0.66, 0.68, z); cabinG.add(p); p.add(mesh(new THREE.BoxGeometry(0.02, 0.1, w), M.dashTrim, -0.01, -0.09, 0)); return p; };
@@ -353,10 +402,10 @@ function shaft(a, b) {
   for (const e of [-1, 1]) s.add(mesh(bootGeo, M.rubber, 0, e * (len / 2 - 0.06), 0));
   return s;
 }
-const shafts = [shaft([1.47, 0.5, -0.42], [1.35, 0.41, -0.7]), shaft([1.36, 0.46, -0.25], [1.35, 0.41, 0.7])];
+const shafts = [shaft([1.47, 0.5, -0.42], [AX, WY, -0.7]), shaft([1.36, 0.46, -0.25], [AX, WY, 0.7])];
 
 // ------------------------------------------------------------------ wheels: lathe-profile tyres, diamond-cut twin-spoke alloys, discs, calipers
-const tyreGeo = new THREE.LatheGeometry([[0.255, -0.105], [0.33, -0.112], [0.385, -0.108], [0.405, -0.09], [0.412, -0.06], [0.414, 0], [0.412, 0.06], [0.405, 0.09], [0.385, 0.108], [0.33, 0.112], [0.255, 0.105]].map(([r, y]) => new THREE.Vector2(r, y)), 72);
+const tyreGeo = new THREE.LatheGeometry([[0.255, -0.1], [0.3, -0.108], [0.335, -0.105], [0.352, -0.088], [0.359, -0.06], [0.361, 0], [0.359, 0.06], [0.352, 0.088], [0.335, 0.105], [0.3, 0.108], [0.255, 0.1]].map(([r, y]) => new THREE.Vector2(r, y)), 72);
 function makeWheel() {
   const g = new THREE.Group(), spin = new THREE.Group(); g.add(spin);
   const tyre = mesh(tyreGeo, M.tyre); tyre.rotation.x = Math.PI / 2; spin.add(tyre);
@@ -372,8 +421,8 @@ function makeWheel() {
   return {g, spin};
 }
 const wheels = [];
-for (const [x, z] of [[1.35, 0.8], [1.35, -0.8], [-1.35, 0.8], [-1.35, -0.8]]) {
-  const w = makeWheel(); w.g.position.set(x, 0.41, z); if (z < 0) w.g.rotation.y = Math.PI; car.add(w.g); wheels.push(w);
+for (const [x, z] of [[AX, 0.79], [AX, -0.79], [-AX, 0.79], [-AX, -0.79]]) {
+  const w = makeWheel(); w.g.position.set(x, WY, z); if (z < 0) w.g.rotation.y = Math.PI; car.add(w.g); wheels.push(w);
 }
 
 // ------------------------------------------------------------------ engine (crank along z, transverse like most FWD cars)
@@ -517,7 +566,7 @@ function label(key, info, parent, x, y, z) {
 function buildLabels() {
   Object.values(LBL).forEach(l => l.o.parent?.remove(l.o));
   label("rpm", "0C", eng, 0, 0.55, 0); label("cool", "67", sys.cool, 1.98, 0.95, -0.5); label("bat", "RV", sys.elec, 1.62, 0.92, -0.62);
-  label("speed", "0D", car, 1.35, 0.95, 0.95); label("cat", "3C", sys.exh, 0.75, 0.45, 0.3); label("air", "10", sys.air, 2.0, 1.15, -0.5);
+  label("speed", "0D", car, AX, 0.9, 0.95); label("cat", "3C", sys.exh, 0.75, 0.45, 0.3); label("air", "10", sys.air, 2.0, 1.15, -0.5);
   label("fuel", "", sys.fuel, -0.95, 0.72, 0); label("thr", "11", sys.air, eng.position.x - 0.2, eng.position.y + 0.55, -0.4);
 }
 function setLbl(k, html, lvl = "") { const l = LBL[k]; if (!l) return; if (l.el._h !== html) { l.el.innerHTML = html; l.el._h = html; } l.el.className = "h3d-lbl" + (lvl ? " " + lvl : ""); }
@@ -528,7 +577,8 @@ const VIEWS = {car: [[5.2, 2.6, 5.4], [0.2, 0.7, 0]], cabin: [[-0.25, 1.29, 0.38
 let xray = q("xray") === "1", showLbl = q("labels") !== "0", view = "car", camTween = null;
 const bar = Object.assign(document.createElement("div"), {className: "h3d-bar"});
 bar.innerHTML = `<button data-v="car" class="on">🚗 Car</button><button data-v="cabin">🪑 Interior</button><button data-v="engine">⚙ Engine</button><button data-v="cutaway">🔬 Cutaway</button><button data-v="side">💨 Exhaust</button>
-  <button data-t="xray">X-ray</button><button data-t="labels">Labels</button><button data-t="rot">⟳ Rotate</button><button data-t="q">✨ ${quality === "high" ? "High" : "Balanced"}</button>
+  <button data-t="xray">X-ray</button><button data-t="labels">Labels</button><button data-t="rot">⟳ Rotate</button><button data-t="q">✨ ${quality === "high" ? "High" : "Balanced"}</button><button data-t="body"></button><button data-t="model">📦 3D model</button>
+  <span class="h3d-menu" hidden><button data-m="load">Load .glb / .gltf file…</button><button data-m="turn">↻ Turn 180°</button><button data-m="remove">Remove model</button></span>
   <span class="h3d-paint">${PAINTS.map(([c, n]) => `<i data-paint="${c}" title="${n}" style="background:${c}"></i>`).join("")}</span>`;
 host.appendChild(bar);
 const note = Object.assign(document.createElement("div"), {className: "h3d-note", textContent: "drag to orbit · pinch / scroll to zoom · engine in slow motion (1/10)"});
@@ -538,6 +588,8 @@ function syncBar() {
   bar.querySelector('[data-t="xray"]').classList.toggle("on", xray);
   bar.querySelector('[data-t="labels"]').classList.toggle("on", showLbl);
   bar.querySelector('[data-t="rot"]').classList.toggle("on", controls.autoRotate);
+  bar.querySelector('[data-t="body"]').textContent = "🚙 " + (custom ? "Your model" : bodyMode === "auto" ? `Auto (${CRETA ? "Creta" : "generic SUV"})` : bodyMode === "creta" ? "Creta" : "Generic SUV");
+  bar.querySelector('[data-t="model"]').classList.toggle("on", !!custom);
   bar.querySelectorAll("[data-paint]").forEach(i => i.classList.toggle("on", i.dataset.paint === paintOf()));
   labelRenderer.domElement.style.display = showLbl && view !== "cabin" ? "" : "none";
 }
@@ -546,7 +598,7 @@ function goView(v) {
   // inside the car the camera pivots around the driver's eye ("look around"); outside it orbits the car
   Object.assign(controls, inside ? {minDistance: 0.02, maxDistance: 0.12, minPolarAngle: 0.25, maxPolarAngle: Math.PI * 0.85, autoRotate: false}
     : {minDistance: 0.8, maxDistance: 14, minPolarAngle: 0, maxPolarAngle: Math.PI * 0.495, autoRotate: q("autorot") !== "0"});
-  camTween = {t: 0, p0: camera.position.clone(), t0: controls.target.clone(), p1: new THREE.Vector3(...p), t1: new THREE.Vector3(...t)};
+  camTween = {t: 0, s: performance.now(), p0: camera.position.clone(), t0: controls.target.clone(), p1: new THREE.Vector3(...p), t1: new THREE.Vector3(...t)};
   if (v === "cutaway" || v === "side") xray = true;
   syncBar();
 }
@@ -557,20 +609,64 @@ bar.addEventListener("click", e => {
   if (b.dataset.t === "labels") { showLbl = !showLbl; qs("labels", showLbl ? "1" : "0"); }
   if (b.dataset.t === "rot") { controls.autoRotate = !controls.autoRotate; qs("autorot", controls.autoRotate ? "1" : "0"); }
   if (b.dataset.t === "q") { quality = quality === "high" ? "balanced" : "high"; qs("quality", quality); location.reload(); }
+  if (b.dataset.t === "body") { bodyMode = {auto: "creta", creta: "generic", generic: "auto"}[bodyMode]; qs("body", bodyMode); }
+  if (b.dataset.t === "model") bar.querySelector(".h3d-menu").hidden = !bar.querySelector(".h3d-menu").hidden;
+  if (b.dataset.m === "load") filePick.click();
+  if (b.dataset.m === "turn" && custom) { custom.rotation.y += Math.PI; qs("modelTurn", String((+(q("modelTurn") || 0) + 1) % 2)); }
+  if (b.dataset.m === "remove") { setCustom(null); idb("delete"); }
   if (b.dataset.paint) { VEH().paint = b.dataset.paint; saveVehicles(); }
   syncBar();
 });
 renderer.domElement.addEventListener("pointerdown", () => { camTween = null; });
 
+// ------------------------------------------------------------------ your own 3D model (.glb/.gltf): replaces the built-in body, kept on this device
+// e.g. a Creta model you bought or downloaded under a licence that allows personal use. It's scaled to the real
+// length (4.33 m), set on the road and centred; the engine, systems and labels stay in place underneath it.
+const filePick = Object.assign(document.createElement("input"), {type: "file", accept: ".glb,.gltf,model/gltf-binary"}); filePick.hidden = true; host.appendChild(filePick);
+let custom = null, customMats = [];
+function idb(op, val) {
+  return new Promise(res => { try { const r = indexedDB.open("h3d", 1); r.onupgradeneeded = () => r.result.createObjectStore("files");
+    r.onsuccess = () => { const tx = r.result.transaction("files", op === "get" ? "readonly" : "readwrite"), st = tx.objectStore("files");
+      const q2 = op === "get" ? st.get("model") : op === "put" ? st.put(val, "model") : st.delete("model"); q2.onsuccess = () => res(q2.result); q2.onerror = () => res(null); };
+    r.onerror = () => res(null); } catch (e) { res(null); } });
+}
+function setCustom(obj) {
+  if (custom) { car.remove(custom); custom = null; customMats = []; }
+  if (obj) { custom = obj; car.add(obj); }
+  syncBar();
+}
+async function loadCustom(buf) {
+  const loader = new GLTFLoader(), draco = new DRACOLoader(); draco.setDecoderPath("https://www.gstatic.com/draco/versioned/decoders/1.5.6/"); loader.setDRACOLoader(draco);
+  const gltf = await loader.parseAsync(buf, ""), m = gltf.scene, g = new THREE.Group(); g.add(m);
+  let box = new THREE.Box3().setFromObject(m), size = box.getSize(new THREE.Vector3());
+  if (size.z > size.x) { m.rotation.y = Math.PI / 2; box = new THREE.Box3().setFromObject(m); size = box.getSize(new THREE.Vector3()); }   // length along x
+  const k = 4.33 / size.x; m.scale.multiplyScalar(k); box = new THREE.Box3().setFromObject(m); const c = box.getCenter(new THREE.Vector3());
+  m.position.x -= c.x; m.position.z -= c.z; m.position.y -= box.min.y;
+  if (q("modelTurn") === "1") g.rotation.y = Math.PI;
+  const mats = []; m.traverse(o => { if (o.isMesh) { o.castShadow = true; o.material = Array.isArray(o.material) ? o.material.map(x => x.clone()) : o.material.clone();
+    [].concat(o.material).forEach(x => { x.userData.o0 = x.opacity; x.userData.t0 = x.transparent; mats.push(x); }); } });
+  setCustom(g); customMats = mats;
+}
+filePick.addEventListener("change", async () => {
+  const f = filePick.files[0]; filePick.value = ""; if (!f) return;
+  try { const buf = await f.arrayBuffer(); await loadCustom(buf); await idb("put", buf); bar.querySelector(".h3d-menu").hidden = true;
+    window.toast?.(`3D model loaded: <b>${f.name.replace(/[<>&]/g, "")}</b>`); }
+  catch (e) { window.toast ? toast("Couldn't load that 3D model: " + String(e.message || e).replace(/[<>&]/g, "")) : alert(e); }
+});
+idb("get").then(buf => buf && loadCustom(buf).catch(() => {}));
+
 // ------------------------------------------------------------------ highlight (from the systems panel in hood.js)
 let hl = null;
-window.HOOD3D = {active: true, highlight(id) { hl = id || null; if (id) { const map = {air: "engine", fuel: "side", power: "cutaway", exh: "side", cool: "engine", elec: "engine"}; goView(map[id] || "car"); } }};
+window.HOOD3D = {active: true, get debug() { return {camera, controls, view}; }, highlight(id) { hl = id || null; if (id) { const map = {air: "engine", fuel: "side", power: "cutaway", exh: "side", cool: "engine", elec: "engine"}; goView(map[id] || "car"); } }};
 
 // ------------------------------------------------------------------ frame loop
 const clock = new THREE.Clock(); let accent = "#3fa7ff", hoodAng = 0, built = "", lastTheme = 0, smoothSpeed = 0, prevSpeed = 0, brakeGlow = 0, sparkT = 0;
 const lerp = (a, b, t) => a + (b - a) * t, clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 function rebuildIfNeeded() {
   const two = isTwoWheeler(), n = Math.max(1, Math.min(8, +VEH().cylinders || (two ? 1 : 4))), key = n + "|" + two;
+  const cr = bodyMode === "creta" || (bodyMode === "auto" && isCretaVeh());
+  if (cr !== CRETA) { CRETA = cr; buildBody(); syncBar(); }
+  spokes4.visible = cretaCab.visible = CRETA; spokes3.visible = !CRETA;
   if (key === built) return; built = key;
   buildEngine(n); buildIntake(); buildExhaust(); buildCooling(); buildElectrical(); buildFuel(); buildLabels();
   // two-wheelers: engine only (no car body), centred
@@ -617,6 +713,11 @@ function frame() {
   sys.cool.visible = sys.elec.visible = sys.air.visible = !cut; sys.fuel.visible = !cut && !two; sys.exh.visible = !two;
   glass.visible = !cut && !two; wheels.forEach(w => w.g.visible = !two && !cut); cabinG.visible = bay.visible = !cut && !two;
   camera.fov = lerp(camera.fov, inside ? 64 : 38, 0.12); camera.updateProjectionMatrix();
+  if (custom) {   // your own model replaces the built-in body; it fades in the engine views and X-ray since its bonnet can't open
+    bodyG.visible = false; wheels.forEach(w => w.g.visible = false); cabinG.visible = inside && !two; custom.visible = !two && !inside;
+    const co = cut ? 0.05 : view === "engine" || xray ? 0.15 : 1;
+    customMats.forEach(m => { m.opacity = co < 1 ? Math.min(m.userData.o0, co) : m.userData.o0; m.transparent = co < 1 || m.userData.t0; m.depthWrite = co >= 1; });
+  } else bodyG.visible = !two;
   airFlow.p.visible = fuelFlow.p.visible = !cut; M.alu.opacity = lerp(M.alu.opacity, cut ? 0.18 : 0.34, 0.1);
   M.piston.emissiveIntensity = 0; cyls.forEach(c => { if (cut && c.pmat.emissiveIntensity === 0) { c.pmat.emissive.set(0x3a4a5a); c.pmat.emissiveIntensity = 0.25; } });
   // engine mechanics (slow motion 1/10 so the motion is readable)
@@ -642,8 +743,8 @@ function frame() {
   // wheels + road speed (real time), brake-light glow when slowing hard
   smoothSpeed = lerp(smoothSpeed, spd, 0.08);
   const ms = smoothSpeed / 3.6;
-  wheels.forEach((w, i) => w.spin.rotation.z -= (i % 2 ? -1 : 1) * ms / 0.41 * dt);
-  shafts.forEach(sh => sh.rotation.y += ms / 0.41 * dt);
+  wheels.forEach((w, i) => w.spin.rotation.z -= (i % 2 ? -1 : 1) * ms / WY * dt);
+  shafts.forEach(sh => sh.rotation.y += ms / WY * dt);
   laneOffset += ms * dt; placeLanes();
   const decel = (prevSpeed - spd) / Math.max(dt, 0.016); prevSpeed = spd;
   brakeGlow = lerp(brakeGlow, decel > 25 ? 1 : 0, 0.1);
@@ -700,7 +801,7 @@ function frame() {
     LBL.fuel.o.visible = LBL.cat.o.visible = LBL.speed.o.visible = !isTwoWheeler();
   }
   // camera tween
-  if (camTween) { camTween.t = Math.min(1, camTween.t + dt / 0.9); const e = 1 - Math.pow(1 - camTween.t, 3);
+  if (camTween) { camTween.t = Math.min(1, (performance.now() - camTween.s) / 900); /* wall-clock: slow devices still finish on time */ const e = 1 - Math.pow(1 - camTween.t, 3);
     camera.position.lerpVectors(camTween.p0, camTween.p1, e); controls.target.lerpVectors(camTween.t0, camTween.t1, e); if (camTween.t >= 1) camTween = null; }
   controls.update(dt);
   if (composer) composer.render(); else renderer.render(scene, camera);

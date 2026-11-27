@@ -45,6 +45,8 @@ It started as a dashboard for a 2024 Hyundai Creta and now works with most cars,
 - **Under the hood (3D):** a sculpted Creta-style SUV (Robust Emerald Pearl by default, plus the other Creta colours) that you can spin 360°. Views:
   - **Interior:** the driver's seat, with live panoramic screens, ambient lighting and pedals that move with throttle and braking.
   - **Engine:** the bonnet opens on the engine bay, with a coolant tank whose level follows temperature, brake fluid, washer fluid and drive shafts.
+  - **Body style:** when the vehicle profile is a Creta (or a Hyundai with no model set), the car uses real Creta dimensions (4330 × 1790 × 1635 mm, 2610 mm wheelbase, 18" wheels) and its design cues: L-shaped LED DRLs, a wide parametric grille, squared wheel arches, connected tail lamps, a shark-fin antenna, a 4-spoke steering wheel and Bose speaker grilles. Other vehicles get a generic SUV. The 🚙 button switches between Auto, Creta and Generic.
+  - **📦 3D model:** load your own `.glb`/`.gltf` (e.g. a Creta model you bought or downloaded under a licence that allows personal use). It's scaled to 4.33 m, kept on the device, and replaces the built-in body; ↻ turns it if it faces backwards.
   - **Cutaway / X-ray:** a mechanically animated engine (crankshaft, rods, pistons, spark plugs firing in order), plus cooling, exhaust heat, airflow, fuel flow and live labels.
 - **Cylinder health,** **alerts** (overheating, low battery, not charging, red zone, speed limit, new codes) and **0–60 / 0–100 / 40–80 timers**.
 - **Hidden data:** discover the modules in your car, read their part and software numbers, find hidden values, and make your own custom PIDs. All read-only.
