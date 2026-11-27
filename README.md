@@ -32,6 +32,8 @@ Then open http://127.0.0.1:8765.
 - Trips: automatic logbook (GPS start/end and route, distance, duration, fuel used, km/L, cost, top/avg speed, max temps, harsh driving), fill-up calibration
 - Under the hood: live CSS-3D engine (pistons follow RPM, parts colour with temperature) + readings by system, cylinder health
 - Hidden data: module scan + ISO 14229 ECU identification, data-ID scanner with live byte watch (finds bytes that follow RPM/speed/temp), custom PIDs
+- Driving coach: learns gear ratios from RPM ÷ speed; flags riding the clutch, slow shifts, rev flare, stalls, lugging, over-revving, high-rev launches, coasting, harsh acceleration/braking, jerky throttle; per-trip score + tips
+- Offline-first storage: trips live on the device; unsynced trips queue for Google Sheets and upload automatically; JSON backup + restore
 - Alerts (overheat, battery, charging, red zone, speed, new codes), 0–60 / 0–100 / 40–80 timers
 - Export: printable / PDF health report, trips CSV, full JSON; optional Google Sheets backup through your own Apps Script
 

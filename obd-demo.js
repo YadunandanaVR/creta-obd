@@ -19,17 +19,36 @@ class CarSim {
   // opts: {codes: simulate faults, bike: small air-cooled engine, kline: ISO 14230 KWP2000 reply format}
   constructor(opts = {}) {
     if (typeof opts === "boolean") opts = {codes: opts};
-    this.t0 = Date.now(); this.headers = false; this.bike = !!opts.bike; this.kline = !!opts.kline;
+    this.t0 = Date.now(); this.headers = false; this.bike = !!opts.bike; this.kline = !!opts.kline; this.drive = !!opts.drive;
     this.stored = opts.codes || opts.bike ? ["0171", "0300"].slice(0, opts.bike ? 1 : 2) : [];
     this.pending = opts.codes ? ["0420"] : [];
   }
   get t() { return (Date.now() - this.t0) / 1000; }
   n(a) { return (Math.random() - 0.5) * 2 * a; }
+  // ?demo=drive: a 60 s manual-gearbox loop — launch, 1→2→3→4 shifts with cruising (so gears can be learned),
+  // one shift with rev flare, a spell of riding the clutch, slowing down and stopping.
+  driveState() {
+    const s = this.t % 60, G = [112, 64, 44, 33], lin = (a, b, f) => a + (b - a) * Math.max(0, Math.min(1, f));
+    const seg = [  // [start, end, speedFrom, speedTo, gear (0 = clutch/neutral), extra rpm]
+      [0, 6, 0, 0, -1], [6, 8, 0, 10, 0], [8, 12, 10, 18, 0], [12, 13, 18, 19, null], [13, 18, 19, 28, 1], [18, 19, 28, 28, null, 900],
+      [19, 26, 28, 42, 2], [26, 27, 42, 42, null], [27, 35, 42, 55, 3], [35, 39, 55, 61, null, 1300], [39, 45, 61, 32, 3],
+      [45, 46, 32, 30, null], [46, 50, 30, 14, 2], [50, 53, 14, 0, -1], [53, 60, 0, 0, -1]];
+    const [a, b, s0, s1, g, extra = 0] = seg.find(x => s >= x[0] && s < x[1]);
+    const f = (s - a) / (b - a), spd = lin(s0, s1, f), prevG = seg[seg.indexOf(seg.find(x => s >= x[0] && s < x[1])) - 1]?.[4] ?? 0;
+    let rpm;
+    if (g === -1) rpm = spd < 1 ? 780 + this.n(15) : 900;
+    else if (g === 0 && s < 8) rpm = lin(1500, 10 * G[0], f);                         // launch: clutch slipping, normal
+    else if (g === null) rpm = lin(spd * G[Math.max(0, prevG)], spd * G[Math.min(3, Math.max(0, prevG) + 1)], f) + extra * Math.sin(f * Math.PI);   // clutch down while shifting
+    else rpm = spd * G[g];
+    const pedal = 15 + (s1 > s0 && g !== null ? 25 : g === null && extra ? 30 : 2);
+    return {spd, rpm: Math.max(700, rpm + this.n(10)), pedal, load: s1 > s0 ? 55 : 18};
+  }
   get rpm() {
+    if (this.drive) return this.driveState().rpm;
     const s = this.t % 40, idle = this.bike ? 1400 : 780, peak = this.bike ? 8600 : 3700, rise = this.bike ? 1000 : 420;
     return s < 25 ? idle + this.n(25) : s < 32 ? idle + (s - 25) * rise : Math.max(idle, peak - (s - 32) * (this.bike ? 900 : 360));
   }
-  get speed() { const s = this.t % 40; return s < 25 ? 0 : s < 32 ? (s - 25) * 9 : Math.max(0, 63 - (s - 32) * 8); }
+  get speed() { if (this.drive) return this.driveState().spd; const s = this.t % 40; return s < 25 ? 0 : s < 32 ? (s - 25) * 9 : Math.max(0, 63 - (s - 32) * 8); }
   get cool() { return Math.min(91, 62 + this.t * 0.6); }
   pid(p) {
     const r = this.rpm, load = 20 + (r - 780) / 60 + this.n(2), tps = 16 + (r - 780) / 70;
@@ -40,7 +59,7 @@ class CarSim {
       case 0x5C: return this.bike ? hx(Math.min(105, 55 + this.t * 0.8) + 40) : null;
       case 0x01: return (this.stored.length ? hx(0x80 | this.stored.length) : "00") + "07E100";
       case 0x03: return "0200";
-      case 0x04: return hx(load * 2.55);
+      case 0x04: return hx((this.drive ? this.driveState().load : load) * 2.55);
       case 0x06: return hx(128 + this.n(6) * 1.28);
       case 0x07: return hx(128 + (this.stored.includes("0171") ? 14 : 1.6) * 1.28);
       case 0x0B: return hx(32 + (r - 780) / 50);
@@ -65,7 +84,7 @@ class CarSim {
       case 0x43: return hx(load * 2.55, 2);
       case 0x44: return "8000";
       case 0x45: return hx((tps - 15) * 2.55); case 0x46: return hx(24 + 40); case 0x47: return hx(tps * 2.55);
-      case 0x49: return hx((15 + (r - 780) / 80) * 2.55); case 0x4A: return hx((7.5 + (r - 780) / 160) * 2.55); case 0x4C: return hx(2 * 2.55);
+      case 0x49: return hx((this.drive ? this.driveState().pedal : 15 + (r - 780) / 80) * 2.55); case 0x4A: return hx((7.5 + (r - 780) / 160) * 2.55); case 0x4C: return hx(2 * 2.55);
       case 0x51: return "01"; case 0x55: return "80"; case 0x56: return "80";
       case 0x67: return "01" + hx(this.cool + 40) + "00";
     }

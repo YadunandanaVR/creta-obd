@@ -360,6 +360,7 @@ dialog::backdrop{background:rgba(0,0,0,.6)}
   <section id="trips">
     <div class="card"><h2>Current trip</h2><div id="tripLive"></div></div>
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:14px" id="tripSummary"></div>
+    <div class="card" style="margin-top:14px"><h2>🎓 Driving coach</h2><div id="coachBox"></div></div>
     <div class="card" style="margin-top:14px"><h2>Past trips</h2>
       <p class="muted" style="margin-top:0;font-size:12.5px">Every drive is saved automatically on this device. Tap a trip for its route, charts and details.
         Mileage is estimated from engine data. <button class="btn" type="button" id="tripCalBtn" style="padding:3px 10px">⛽ Calibrate with a fill-up</button> makes it match your pump.</p>
@@ -408,7 +409,10 @@ dialog::backdrop{background:rgba(0,0,0,.6)}
       <div class="card"><h2>Health report</h2><p class="muted" style="margin-top:0">Vehicle, trouble codes with fixes, readiness, battery, trips and a live snapshot. Print it or save as PDF to share with a mechanic.</p>
         <button class="btn primary" type="button" id="expReport">📄 Create report</button></div>
       <div class="card"><h2>Export data</h2><p class="muted" style="margin-top:0">Files for Excel / Google Sheets or backup.</p>
-        <div class="row"><button class="btn" type="button" id="expTripsCsv">Trips (CSV)</button><button class="btn" type="button" id="expJson">Everything (JSON)</button><button class="btn" type="button" id="csvBtn2">Last 2 min live data (CSV)</button></div></div>
+        <div class="row"><button class="btn" type="button" id="expTripsCsv">Trips (CSV)</button><button class="btn" type="button" id="expJson">Everything (JSON)</button><button class="btn" type="button" id="csvBtn2">Last 2 min live data (CSV)</button></div>
+        <p class="muted" style="font-size:12.5px;margin-bottom:6px">Everything is stored on this device first and works without internet. Uninstalling the app erases it, so save an
+          <b>Everything (JSON)</b> backup first, then restore it here after reinstalling.</p>
+        <button class="btn" type="button" id="expRestore">♻ Restore from backup…</button></div>
       <div class="card" style="grid-column:1/-1"><h2>☁ Google Sheets backup</h2><div id="syncBox"></div></div>
     </div>
   </section>
@@ -465,8 +469,8 @@ dialog::backdrop{background:rgba(0,0,0,.6)}
 <div id="tip"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <!-- ?v= busts browser caches when the app is updated -->
-<script src="obd-engine.js?v=16"></script>
-<script src="obd-demo.js?v=16"></script>
+<script src="obd-engine.js?v=20"></script>
+<script src="obd-demo.js?v=20"></script>
 <dialog id="infoDlg"><form method="dialog">
   <div id="infoBody"></div>
   <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="btn primary" value="ok">Close</button></div>
@@ -497,7 +501,7 @@ async function pickEngine() {
   if (QS.has("demo")) {
     const e = new OBD.DirectEngine(); e.demo = true; e.protocol = VEH().protocol || "0";
     const d = QS.get("demo");   // ?demo=1 car · dtc car with faults · bike (K-line, air-cooled) · kline (older car)
-    await e.setPort(new OBDDemo.MockPort({codes: d === "dtc", bike: d === "bike", kline: d === "bike" || d === "kline"})); return e;
+    await e.setPort(new OBDDemo.MockPort({codes: d === "dtc", bike: d === "bike", kline: d === "bike" || d === "kline", drive: d === "drive"})); return e;
   }
   if (QS.get("mode") !== "direct" && !OBD.isNativeApp()) {
     try {
@@ -1572,7 +1576,8 @@ function editVehicle(id, prefill = {}) {
       ${f("idleMin", "Warm idle from (rpm)", "number")}${f("idleMax", "Warm idle to (rpm)", "number")}
       ${f("speedMax", "Speed gauge max (km/h)", "number")}${f("cylinders", "Cylinders", "number")}
       ${f("engineCc", "Engine size (cc)", "number")}${f("fuelPrice", "Fuel price per litre", "number", "100")}
-      ${f("currency", "Currency symbol", "text", "₹")}<label class="vf">Record GPS route<select data-f="gps"><option value="on" ${v.gps === false ? "" : "selected"}>On</option><option value="off" ${v.gps === false ? "selected" : ""}>Off</option></select></label>
+      ${f("currency", "Currency symbol", "text", "₹")}<label class="vf">Gearbox<select data-f="transmission">${Object.entries({manual: "Manual", amt: "AMT", auto: "Automatic", cvt: "CVT / IVT", dct: "DCT"}).map(([k, n]) => `<option value="${k}" ${(v.transmission || "manual") === k ? "selected" : ""}>${n}</option>`).join("")}</select></label>
+      <label class="vf">Record GPS route<select data-f="gps"><option value="on" ${v.gps === false ? "" : "selected"}>On</option><option value="off" ${v.gps === false ? "selected" : ""}>Off</option></select></label>
       <label class="vf" style="grid-column:1/-1">OBD protocol
         <select data-f="protocol">
         ${PROTOCOLS.map(([n, l]) => `<option value="${n}" ${String(v.protocol) === n ? "selected" : ""}>${l}</option>`).join("")}</select></label>
@@ -1630,11 +1635,12 @@ async function loadLog() { const t = await ENGINE.writelog(); $("#wlog").textCon
 // offline support when hosted over https (GitHub Pages)
 if ("serviceWorker" in navigator && location.protocol === "https:" && !OBD.isNativeApp()) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>
-<script src="trips.js?v=16"></script>
-<script src="hood.js?v=16"></script>
-<script src="hidden.js?v=16"></script>
-<script src="extras.js?v=16"></script>
+<script src="trips.js?v=20"></script>
+<script src="driving.js?v=20"></script>
+<script src="hood.js?v=20"></script>
+<script src="hidden.js?v=20"></script>
+<script src="extras.js?v=20"></script>
 <!-- realistic WebGL "Under the hood" view; if the CDN can't be reached it simply doesn't load and the CSS engine stays -->
-<script type="module" src="hood3d.js?v=16"></script>
+<script type="module" src="hood3d.js?v=20"></script>
 </body>
 </html>

@@ -68,7 +68,11 @@ function finishTrip(reason) {
   tr.cost = tr.fuelL * tr.price;
   tr.newCodes = (S?.dtc?.stored || []).filter(c => !tr.codesAtStart.includes(c));   // S may not exist yet when closing a trip left open last session
   tr.fuelSource = Object.entries(tr.fuelSrc).sort((a, b) => b[1] - a[1])[0]?.[0] || "not available";
-  tstore.set("trip:" + tr.id, tr);
+  for (const f of window.TRIP_FINALIZERS || []) try { f(tr); } catch (e) { console.error(e); }   // e.g. driving-coach report
+  if (!tstore.set("trip:" + tr.id, tr)) {          // storage full: drop the detailed series/route of the oldest trips, then retry
+    for (const s of tripIndex.slice(-40)) { const o = tstore.get("trip:" + s.id, null); if (o) { o.series = []; o.path = o.path?.filter((_, i) => i % 4 === 0) || []; tstore.set("trip:" + s.id, o); } }
+    tstore.set("trip:" + tr.id, tr);
+  }
   tripIndex.unshift(summaryOf(tr));
   while (tripIndex.length > 300) tstore.del("trip:" + tripIndex.pop().id);
   tstore.set("index", tripIndex);
@@ -78,7 +82,7 @@ function finishTrip(reason) {
 }
 const summaryOf = tr => ({id: tr.id, vehId: tr.vehId, vehName: tr.vehName, start: tr.start, end: tr.end, distKm: tr.distKm, fuelL: tr.fuelL,
   kmpl: tr.kmpl, cost: tr.cost, currency: tr.currency, topSpeed: tr.topSpeed, maxTemp: tr.maxTemp, durS: tr.durS,
-  from: tr.startLoc, to: tr.endLoc, newCodes: tr.newCodes});
+  from: tr.startLoc, to: tr.endLoc, newCodes: tr.newCodes, drive: tr.driving?.score ?? null});
 
 function sampleTrip() {
   const t = S?.live?.["0C"]?.t;
@@ -188,6 +192,7 @@ function openTrip(id) {
     <div class="row" style="margin-top:6px;font-size:13px">${tr.startLoc ? `<a href="${mapsLink(tr.startLoc)}" target="_blank" rel="noopener" style="color:var(--ok)">● Start on map</a>` : ""}
       ${tr.endLoc ? `<a href="${mapsLink(tr.endLoc)}" target="_blank" rel="noopener" style="color:var(--bad)">● End on map</a>` : ""}</div>
     ${seriesSvg(tr.series, 1, null, "var(--accent)", "Speed")}${seriesSvg(tr.series, 3, null, "var(--warn)", "Engine temperature")}${seriesSvg(tr.series, 2, null, "var(--needle)", "RPM")}
+    ${window.drivingHtml ? window.drivingHtml(tr) : ""}
     ${tr.newCodes?.length ? `<div class="warnbox bad" style="margin-top:10px"><h4 style="margin:0">New trouble codes during this trip</h4><p style="margin:4px 0 0">${tr.newCodes.join(", ")}</p></div>` : ""}
     <div class="row" style="justify-content:space-between;margin-top:12px">
       <button class="btn danger" type="button" data-deltrip="${tr.id}">Delete trip</button>
@@ -222,7 +227,7 @@ function renderTrips(force = false) {
       <b>${tdate(s.start).toLocaleDateString([], {day: "numeric", month: "short"})} · ${tdate(s.start).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"})}</b>
       <span class="muted">${hhmm(s.durS)}</span><span class="spacer" style="flex:1"></span>
       <b>${(s.distKm || 0).toFixed(1)} km</b></div>
-      <div class="muted" style="font-size:12.5px;margin-top:3px">${s.kmpl ? s.kmpl.toFixed(1) + " km/L · " : ""}${s.fuelL ? (s.fuelL).toFixed(2) + " L · " + money(s.cost) + " · " : ""}top ${Math.round(s.topSpeed || 0)} km/h${s.maxTemp != null ? " · max " + s.maxTemp + " °C" : ""}${s.newCodes?.length ? ` · <span style="color:var(--bad)">⚠ ${s.newCodes.join(", ")}</span>` : ""}</div></div>`).join("")
+      <div class="muted" style="font-size:12.5px;margin-top:3px">${s.kmpl ? s.kmpl.toFixed(1) + " km/L · " : ""}${s.fuelL ? (s.fuelL).toFixed(2) + " L · " + money(s.cost) + " · " : ""}${s.drive != null ? `🎓 ${s.drive}/100 · ` : ""}top ${Math.round(s.topSpeed || 0)} km/h${s.maxTemp != null ? " · max " + s.maxTemp + " °C" : ""}${s.newCodes?.length ? ` · <span style="color:var(--bad)">⚠ ${s.newCodes.join(", ")}</span>` : ""}</div></div>`).join("")
     : `<p class="muted">No trips yet for ${esc(vehName(v))}.</p>`;
 }
 document.addEventListener("click", e => {
@@ -244,4 +249,13 @@ document.addEventListener("click", e => {
 window.RENDER_HOOKS.push(sampleTrip, () => { if ($("#trips")?.classList.contains("on")) renderTrips(); });
 // resume or close a trip left open when the app was closed (runs last: everything above must be initialised)
 try { if (curTrip) { if (nowS() - curTrip.lastT > 600) finishTrip("app closed"); else startGps(); } } catch (e) { console.error("trip resume", e); }
-window.TRIPS = {get index() { return tripIndex; }, get: id => tstore.get("trip:" + id, null), get current() { return curTrip; }, idleRpm, fuelRate, totals, tripsFor};
+window.TRIPS = {get index() { return tripIndex; }, get: id => tstore.get("trip:" + id, null),
+  // restore trips from a JSON backup (export file); skips ones already on this device
+  restore(list) {
+    let added = 0;
+    for (const tr of list) {
+      if (!tr?.id || !tr.start || tripIndex.some(s => s.id === tr.id)) continue;
+      tstore.set("trip:" + tr.id, tr); tripIndex.push(summaryOf(tr)); added++;
+    }
+    tripIndex.sort((a, b) => b.start - a.start); tstore.set("index", tripIndex); renderTrips(true); return added;
+  }, get current() { return curTrip; }, idleRpm, fuelRate, totals, tripsFor};

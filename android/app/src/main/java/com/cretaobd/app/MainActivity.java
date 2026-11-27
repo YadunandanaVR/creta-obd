@@ -23,6 +23,7 @@ import android.print.PrintAttributes;
 import android.print.PrintManager;
 import android.webkit.GeolocationPermissions;
 import android.webkit.JavascriptInterface;
+import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -58,6 +59,17 @@ public class MainActivity extends Activity {
     private static final String HOST = "appassets.androidplatform.net";
 
     private static final int REQ_LOCATION = 2;
+    private static final int REQ_FILE = 3;
+    private ValueCallback<Uri[]> fileCallback;
+
+    @Override
+    protected void onActivityResult(int code, int result, Intent data) {
+        super.onActivityResult(code, result, data);
+        if (code == REQ_FILE && fileCallback != null) {
+            fileCallback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(result, data));
+            fileCallback = null;
+        }
+    }
     private String geoOrigin;
     private GeolocationPermissions.Callback geoCallback;
     private WebView web;
@@ -101,6 +113,15 @@ public class MainActivity extends Activity {
         });
         s.setGeolocationEnabled(true);
         web.setWebChromeClient(new WebChromeClient() {
+            // "Restore from backup": let the page pick a JSON file
+            @Override
+            public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
+                if (fileCallback != null) fileCallback.onReceiveValue(null);
+                fileCallback = callback;
+                try { startActivityForResult(params.createIntent(), REQ_FILE); }
+                catch (Exception e) { fileCallback = null; return false; }
+                return true;
+            }
             // trip routes: the page asks for location -> ask Android for permission once, then answer the page
             @Override
             public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {

@@ -644,7 +644,10 @@ class DirectEngine {
         if (this.jobs.length) { const j = this.jobs.shift(); try { j.res(await j.fn()); } catch (e) { j.rej(e); } }
         const fast = [...FAST, this.supported.has(0x67) ? 0x67 : 0x05].filter(p => this.supported.has(p));
         const slow = [...this.supported].sort((a, b) => a - b).filter(p => PIDS[p] && !fast.includes(p));
-        for (const p of fast) await this.pollPid(p);
+        // RPM + speed are re-read after every two other PIDs (≈2–3× per second) so gear shifts and clutch use can be analysed
+        const prio = [0x0C, 0x0D].filter(p => this.supported.has(p)), rest = fast.filter(p => !prio.includes(p));
+        if (this.supported.has(0x49) && !rest.includes(0x49)) rest.push(0x49);          // accelerator pedal: throttle smoothness
+        for (let i = 0; i < rest.length; i++) { if (i % 2 === 0) for (const p of prio) await this.pollPid(p); await this.pollPid(rest[i]); }
         for (let i = 0; i < 2 && slow.length; i++) await this.pollPid(slow[slowIdx++ % slow.length]);
         if (Date.now() - lastV > 3000) {
           this.voltage = await this.volts(); lastV = Date.now();
