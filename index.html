@@ -4,9 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>OBD Dashboard</title>
-<link rel="manifest" href="/manifest.json">
-<link rel="icon" href="/icon.svg">
-<link rel="apple-touch-icon" href="/icon.svg">
+<script type="importmap">{"imports": {"three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-192.png">
 <meta name="theme-color" content="#0b0f14">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -463,8 +465,8 @@ dialog::backdrop{background:rgba(0,0,0,.6)}
 <div id="tip"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <!-- ?v= busts browser caches when the app is updated -->
-<script src="obd-engine.js?v=11"></script>
-<script src="obd-demo.js?v=11"></script>
+<script src="obd-engine.js?v=16"></script>
+<script src="obd-demo.js?v=16"></script>
 <dialog id="infoDlg"><form method="dialog">
   <div id="infoBody"></div>
   <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="btn primary" value="ok">Close</button></div>
@@ -1628,9 +1630,11 @@ async function loadLog() { const t = await ENGINE.writelog(); $("#wlog").textCon
 // offline support when hosted over https (GitHub Pages)
 if ("serviceWorker" in navigator && location.protocol === "https:" && !OBD.isNativeApp()) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>
-<script src="trips.js?v=11"></script>
-<script src="hood.js?v=11"></script>
-<script src="hidden.js?v=11"></script>
-<script src="extras.js?v=11"></script>
+<script src="trips.js?v=16"></script>
+<script src="hood.js?v=16"></script>
+<script src="hidden.js?v=16"></script>
+<script src="extras.js?v=16"></script>
+<!-- realistic WebGL "Under the hood" view; if the CDN can't be reached it simply doesn't load and the CSS engine stays -->
+<script type="module" src="hood3d.js?v=16"></script>
 </body>
 </html>

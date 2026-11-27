@@ -131,6 +131,7 @@ function renderSystems() {
 document.addEventListener("click", e => {
   const s = e.target.closest("[data-sys]"); if (!s || e.target.closest("[data-info]:not([data-info=''])")) return;
   sysSel = sysSel === s.dataset.sys ? null : s.dataset.sys;
+  window.HOOD3D?.highlight(sysSel);
   document.querySelectorAll("#e3scene .e3-box").forEach(b => b.classList.remove("hl"));
   const sys = SYSTEMS.find(x => x.id === sysSel);
   if (sys) sys.parts.forEach(id => document.querySelectorAll(`#${id} .e3-box`).forEach(b => b.classList.add("hl")));
@@ -192,7 +193,8 @@ document.addEventListener("click", e => { if (e.target.closest("#cylRead")) api(
 
 window.RENDER_HOOKS.push(() => {
   if (!$("#hood")?.classList.contains("on")) return;
-  buildEngine(); bindDrag(); updateEngine(); renderSystems(); renderCyl();
+  if (!window.HOOD3D?.active) { buildEngine(); bindDrag(); updateEngine(); }   // CSS fallback only when WebGL view didn't load
+  renderSystems(); renderCyl();
 });
 requestAnimationFrame(e3Frame);
 window.HOOD = {cylHealth};

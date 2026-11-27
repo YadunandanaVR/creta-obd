@@ -66,15 +66,15 @@ function finishTrip(reason) {
   tr.kmpl = tr.fuelL > 0.02 ? tr.distKm / tr.fuelL : null;
   tr.l100 = tr.distKm > 0.2 && tr.fuelL > 0 ? tr.fuelL / tr.distKm * 100 : null;
   tr.cost = tr.fuelL * tr.price;
-  tr.newCodes = (S.dtc?.stored || []).filter(c => !tr.codesAtStart.includes(c));
+  tr.newCodes = (S?.dtc?.stored || []).filter(c => !tr.codesAtStart.includes(c));   // S may not exist yet when closing a trip left open last session
   tr.fuelSource = Object.entries(tr.fuelSrc).sort((a, b) => b[1] - a[1])[0]?.[0] || "not available";
   tstore.set("trip:" + tr.id, tr);
   tripIndex.unshift(summaryOf(tr));
   while (tripIndex.length > 300) tstore.del("trip:" + tripIndex.pop().id);
   tstore.set("index", tripIndex);
   for (const f of window.TRIP_HOOKS) try { f(tr); } catch (e) { console.error(e); }
-  toast?.(`🏁 Trip saved · ${tr.distKm.toFixed(1)} km${tr.kmpl ? ` · ${tr.kmpl.toFixed(1)} km/L` : ""}${tr.fuelL ? ` · ${money(tr.cost)}` : ""}`, true, 6000);
-  renderTrips(true);
+  if (typeof toast === "function") toast(`🏁 Trip saved · ${tr.distKm.toFixed(1)} km${tr.kmpl ? ` · ${tr.kmpl.toFixed(1)} km/L` : ""}${tr.fuelL ? ` · ${money(tr.cost)}` : ""}`, true, 6000);
+  if (document.querySelector("#tripLive")) renderTrips(true);
 }
 const summaryOf = tr => ({id: tr.id, vehId: tr.vehId, vehName: tr.vehName, start: tr.start, end: tr.end, distKm: tr.distKm, fuelL: tr.fuelL,
   kmpl: tr.kmpl, cost: tr.cost, currency: tr.currency, topSpeed: tr.topSpeed, maxTemp: tr.maxTemp, durS: tr.durS,
@@ -138,8 +138,6 @@ function startGps() {
 }
 function stopGps() { if (gpsWatch != null) { navigator.geolocation.clearWatch(gpsWatch); gpsWatch = null; } }
 
-// resume or close a trip left open when the app was closed
-if (curTrip) { if (nowS() - curTrip.lastT > 600) { const t = curTrip; curTrip = t; finishTrip("app closed"); } else startGps(); }
 
 // --------------------------------------------------------------- UI
 const mapsLink = p => p ? `https://www.google.com/maps?q=${p[0]},${p[1]}` : null;
@@ -244,4 +242,6 @@ document.addEventListener("click", e => {
   toast(`✅ Fuel calibration set to ${v.fuelCal}%. Mileage figures now match your pump readings.`, true, 7000);
 });
 window.RENDER_HOOKS.push(sampleTrip, () => { if ($("#trips")?.classList.contains("on")) renderTrips(); });
+// resume or close a trip left open when the app was closed (runs last: everything above must be initialised)
+try { if (curTrip) { if (nowS() - curTrip.lastT > 600) finishTrip("app closed"); else startGps(); } } catch (e) { console.error("trip resume", e); }
 window.TRIPS = {get index() { return tripIndex; }, get: id => tstore.get("trip:" + id, null), get current() { return curTrip; }, idleRpm, fuelRate, totals, tripsFor};

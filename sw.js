@@ -1,7 +1,7 @@
 // Offline cache so the app opens in the car without mobile data.
 // Network-first: always tries to fetch the latest version, falls back to the cached copy.
-const CACHE = "creta-obd-v4";
-const FILES = ["./", "index.html", "obd-engine.js", "obd-demo.js", "manifest.json", "icon.svg", "icon-192.png", "icon-512.png", "trips.js", "hood.js", "hidden.js", "extras.js"];
+const CACHE = "creta-obd-v5";
+const FILES = ["./", "index.html", "obd-engine.js", "obd-demo.js", "manifest.json", "icon.svg", "icon-192.png", "icon-512.png", "trips.js", "hood.js", "hidden.js", "extras.js", "hood3d.js"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
